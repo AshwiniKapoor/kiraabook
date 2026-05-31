@@ -7,7 +7,7 @@ import { g, sv, show, toast, fmtDate, fmtMoney, esc, escAttr, closeModal, genUID
 // ═════════════════════════════════════════════════════════════
 
 // ── PROPERTIES ───────────────────────────────────────────────
-let properties = [];
+// `properties` lives on window (set in app.js) so all modules share the same array
 let unsubProperties = null;
 
 function subscribeProperties(ownerID){
