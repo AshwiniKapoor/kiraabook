@@ -1,7 +1,6 @@
 // ── KiraaBook App Entry Point ────────────────────────────────────────────────
 // Imports trigger module-level side effects (window.* registrations)
-import { db, fbGetDoc, fbGet, fbAdd, logActivity, collection, onSnapshot } from './firebase.js';
-import { state }                        from './state.js';
+import { db, fbGetDoc, fbGet, logActivity } from './firebase.js';
 import { g, sv, show, toast, fmtDate, fmtMoney, esc, closeModal } from './helpers.js';
 import './auth.js';
 import './owner.js';
@@ -13,10 +12,45 @@ import './features/maintenance.js';
 import './features/rent-agreement.js';
 import './ui.js';
 
+// ── Global state — initialise ALL variables from the original monolith globals
+// block on window so every strict-mode ES module can reference them as bare names.
+// (In strict-mode modules, bare writes only work if the property already exists on
+// the global object; reads follow normal scope → global lookup.)
+window.tenants        = [];
+window.bills          = [];
+window.rooms          = [];
+window.paymentClaims  = [];
+window.properties     = [];
+window.tickets        = [];
+window._rawBills      = [];
+
+window.currentTenantId  = null;
+window.currentOwnerData = null;
+
+window.currentFilter = "all";
+window.billFilter    = "all";
+window.pkPlanSel     = "monthly";
+
+window.unsubT     = null;
+window.unsubB     = null;
+window.unsubR     = null;
+window.unsubC     = null;
+window.unsubNotif = null;
+window.unsubRH    = null;
+
+window.dbCurrColl     = "";
+window.dbRecs         = [];
+window.currentGenKey2 = "";
+
+window.pendingKeyId      = "";
+window.pendingFlow       = "";
+window.forgotTenantDocId = "";
+window.forgotOwnerDocId  = "";
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 async function boot() {
-  const urlParams    = new URLSearchParams(window.location.search);
-  const inviteOwner  = urlParams.get("owner");
+  const urlParams   = new URLSearchParams(window.location.search);
+  const inviteOwner = urlParams.get("owner");
 
   setTimeout(async () => {
     document.getElementById("loading-screen").style.opacity = "0";
@@ -42,7 +76,7 @@ async function boot() {
         if (savedOwnerID) {
           const o = await fbGetDoc("owners", savedOwnerID);
           if (o && o.active !== false) {
-            state.currentOwnerData = o;
+            window.currentOwnerData = o;
             show("screen-owner");
             window.initOwner();
             return;
@@ -55,7 +89,7 @@ async function boot() {
         if (savedTenantID) {
           const t = await fbGetDoc("tenants", savedTenantID);
           if (t && t.active !== false && t.approved) {
-            state.currentTenantId = t.id;
+            window.currentTenantId = t.id;
             show("screen-tenant");
             await window.renderTenantView(t);
             return;
@@ -79,8 +113,6 @@ async function boot() {
   }, 280);
 }
 
-// ── Window aliases needed by inline HTML onclick handlers ─────────────────────
-// (most are registered in their own modules; these are the stragglers)
 window.closeModal = closeModal;
 
 boot();

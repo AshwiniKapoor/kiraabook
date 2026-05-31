@@ -3,7 +3,7 @@ import { state } from '../state.js';
 import { g, sv, show, toast, fmtDate, fmtMoney, esc, escAttr, closeModal, genUID } from '../helpers.js';
 
 // ── MAINTENANCE TICKETS ──────────────────────────────────────
-let tickets = [];
+// `tickets` lives on window (set in app.js) so all modules share the same array
 let unsubTickets = null;
 let maintFilter = "all";
 
