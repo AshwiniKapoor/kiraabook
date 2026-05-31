@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>KiraaBook v9 – Smart Rent Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<!-- App Styles -->
+<link rel="stylesheet" href="assets/css/variables.css"/>
+<link rel="stylesheet" href="assets/css/global.css"/>
+<link rel="stylesheet" href="assets/css/components.css"/>
+<link rel="stylesheet" href="assets/css/screens.css"/>
+</head>
+<body>
+
+<!-- v10 CDN: jsPDF for bill downloads -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="load-logo">
+    <div class="load-icon">🏠</div>
+    <div class="load-name">KiraaBook</div>
+  </div>
+  <div class="load-bar"><div class="load-fill"></div></div>
+  <div class="load-txt" id="load-txt">● Initializing...</div>
+</div>
+
+<!-- ════ LANDING ════ -->
+<div id="screen-landing" class="screen">
+  <div class="grid-bg"></div>
+  <div class="blob" style="width:400px;height:400px;background:#4f9cf9;top:-100px;left:-100px;opacity:.15"></div>
+  <div class="blob" style="width:300px;height:300px;background:#f5a623;bottom:-80px;right:-80px;opacity:.12"></div>
+  <div class="land-inner">
+    <div class="brand"><div class="brand-ico">🏠</div><div class="brand-nm">KiraaBook</div></div>
+    <div class="brand-tag">Smart rental management · Tenants, bills &amp; rooms in one place</div>
+
+    <!-- NEW: FREE SIGNUP CTA -->
+    <div class="signup-cta-card" onclick="goOwnerSignup()">
+      <div class="scc-title">🎉 Start Free — No Card Needed</div>
+      <div class="scc-desc">30 days free trial · Up to 3 tenants · Full features · Upgrade anytime</div>
+    </div>
+
+    <div class="land-cards">
+      <div class="land-card o" onclick="goOwnerLogin()"><span class="lc-em">👑</span><div class="lc-title">Owner Login</div><div class="lc-desc">Already registered? Sign in</div></div>
+      <div class="land-card t" onclick="goTenantLogin()"><span class="lc-em">🏠</span><div class="lc-title">Tenant Login</div><div class="lc-desc">View bills &amp; make payments</div></div>
+      <div class="land-card a land-card-full" onclick="goAdminLogin()"><span class="lc-em">⚙️</span><div class="lc-title">Admin Panel</div><div class="lc-desc">Manage everything · Generate paid keys · Full database</div></div>
+    </div>
+    <div style="margin-top:14px;text-align:center">
+      <span style="font-size:11px;color:var(--text3);font-weight:500">Want a paid plan? </span>
+      <span style="font-size:11px;color:var(--blue);font-weight:700;cursor:pointer" onclick="goPlans()">View Plans →</span>
+    </div>
+    <div class="land-foot">KIRAABOOK v10.0 · FIREBASE POWERED · GLOBAL</div>
+    <div style="text-align:center;margin-top:8px"><span style="font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline" onclick="kbReset()">🔄 Reset App (if stuck)</span></div>
+  </div>
+</div>
+
+<!-- ════ PLANS / UPGRADE ════ -->
+<div id="screen-sub" class="screen">
+  <div class="grid-bg"></div>
+  <div class="blob" style="width:500px;height:500px;background:#4f9cf9;top:-200px;left:-200px;opacity:.15"></div>
+  <div class="blob" style="width:400px;height:400px;background:#f5a623;bottom:-150px;right:-150px;opacity:.12"></div>
+  <div class="sub-inner">
+    <div class="sub-logo"><div class="sub-logo-icon">🏠</div><div class="sub-logo-name">KiraaBook Plans</div></div>
+
+    <div class="free-trial-banner">
+      <h3>🎉 Start Free — 30 Days, 3 Tenants</h3>
+      <p>No credit card. No activation key. Just sign up &amp; use it instantly.</p>
+      <button class="btn-start-free" onclick="goOwnerSignup()">🚀 Start Free Trial Now</button>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);text-align:center;margin:18px 0 10px">Or buy a paid plan</div>
+
+    <div class="plan-tabs">
+      <button class="ptab active" onclick="switchPlan('monthly',this)">Monthly</button>
+      <button class="ptab" onclick="switchPlan('annual',this)">Annual 🔥</button>
+    </div>
+    <div class="plan-card show" id="plan-monthly">
+      <div class="plan-head"><div class="plan-badge pb-m">MONTHLY PLAN</div><div class="plan-price"><sup>₹</sup>40<sub>/mo</sub></div><div style="font-size:12px;color:var(--green);font-weight:700;margin-top:6px">Cancel anytime</div></div>
+      <div class="plan-feats"><div class="pf"><span class="pf-ok">✓</span>Unlimited Tenants</div><div class="pf"><span class="pf-ok">✓</span>Photo &amp; ID Upload</div><div class="pf"><span class="pf-ok">✓</span>Monthly Auto-Bills</div><div class="pf"><span class="pf-ok">✓</span>WhatsApp Alerts</div><div class="pf"><span class="pf-ok">✓</span>Tenant Portal</div><div class="pf"><span class="pf-ok">✓</span>Room Management</div></div>
+    </div>
+    <div class="plan-card" id="plan-annual">
+      <div class="plan-head"><div class="plan-badge pb-a">ANNUAL — BEST VALUE</div><div class="plan-price"><sup>₹</sup>499<sub>/yr</sub></div><div style="font-size:12px;color:var(--green);font-weight:700;margin-top:6px">💰 Save ₹481 vs monthly!</div></div>
+      <div class="plan-feats"><div class="pf"><span class="pf-ok">✓</span>All Monthly Features</div><div class="pf"><span class="pf-ok">✓</span>2 Months FREE</div><div class="pf"><span class="pf-ok">✓</span>Priority Support</div><div class="pf"><span class="pf-ok">✓</span>Activity Logs</div><div class="pf"><span class="pf-ok">✓</span>Data Backup/Export</div><div class="pf"><span class="pf-ok">✓</span>Future Features Free</div></div>
+    </div>
+    <button class="btn-buy" id="buy-btn" onclick="buyNow()">🔐 Buy Monthly Plan — ₹40</button>
+    <div class="sub-note">🔒 UPI, PhonePe, GPay, Paytm, Cards · Powered by Razorpay</div>
+    <button class="btn-back" onclick="goLanding()">← Back to Home</button>
+  </div>
+</div>
+
+<!-- ════ OWNER SIGNUP (FREE) ════ -->
+<div id="screen-owner-signup" class="screen auth-screen">
+  <div class="auth-box">
+    <div class="auth-head">
+      <div class="auth-badge ab-g">🎉 Free Sign Up</div>
+      <div class="auth-title">Create Your Account</div>
+      <div class="auth-sub">30 days free · No card needed · Cancel anytime</div>
+    </div>
+
+    <!-- Social Sign-Up (v11) -->
+    <div class="social-signin-group">
+      <button class="social-btn social-google" onclick="signInWithGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+        <span>Sign up with Google</span>
+      </button>
+      <button class="social-btn social-facebook" onclick="signInWithFacebook()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <span>Sign up with Facebook</span>
+      </button>
+    </div>
+
+    <div class="social-divider"><span>or fill the form below</span></div>
+
+    <span class="field-label">Full Name *</span>
+    <input class="field-inp ggf" id="signup-name" placeholder="e.g. Rajesh Sharma"/>
+    <span class="field-label">Phone Number *</span>
+    <input class="field-inp ggf" id="signup-phone" type="tel" placeholder="10-digit phone"/>
+    <span class="field-label">Email Address (optional)</span>
+    <input class="field-inp ggf" id="signup-email" type="email" placeholder="you@example.com (optional)"/>
+    <span class="field-label">Username (for login) *</span>
+    <input class="field-inp ggf" id="signup-username" placeholder="e.g. rajesh123 (no spaces)"/>
+    <span class="field-label">Create Password *</span>
+    <input class="field-inp ggf" id="signup-pass" type="password" placeholder="Minimum 6 characters"/>
+    <span class="field-label">Confirm Password *</span>
+    <input class="field-inp ggf" id="signup-pass2" type="password" placeholder="Re-enter password"/>
+    <div class="err-msg" id="signup-err"></div>
+    <button class="btn-auth btn-g" onclick="showOwnerSignupPolicy()">📜 Review &amp; Accept Terms</button>
+    <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--text3)">
+      Already have an account? <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="goOwnerLogin()">Login →</span>
+    </div>
+    <button class="btn-back" onclick="goLanding()">← Back to Home</button>
+  </div>
+</div>
+
+<!-- ════ OWNER LOGIN ════ -->
+<div id="screen-owner-login" class="screen auth-screen">
+  <div class="auth-box">
+    <div class="auth-head">
+      <div class="auth-badge ab-o">👑 Owner Access</div>
+      <div class="auth-title">Owner Login</div>
+      <div class="auth-sub">Sign in to manage your tenants</div>
+    </div>
+
+    <!-- Social Sign-In (v11) -->
+    <div class="social-signin-group">
+      <button class="social-btn social-google" onclick="signInWithGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+        <span>Continue with Google</span>
+      </button>
+      <button class="social-btn social-facebook" onclick="signInWithFacebook()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <span>Continue with Facebook</span>
+      </button>
+    </div>
+
+    <div class="social-divider"><span>or sign in with username</span></div>
+    <span class="field-label">Username</span>
+    <input class="field-inp" id="owner-user" placeholder="Enter username" onkeydown="if(event.key==='Enter')ownerLogin()"/>
+    <span class="field-label">Password</span>
+    <input class="field-inp" id="owner-pass" type="password" placeholder="Enter password" onkeydown="if(event.key==='Enter')ownerLogin()"/>
+    <span class="forgot-link" onclick="showOwnerForgot()">Forgot password?</span>
+
+    <!-- Owner forgot password box -->
+    <div id="owner-forgot-box" style="display:none" class="reset-box">
+      <div class="reset-box-title">🔑 Reset Owner Password</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500;line-height:1.6">Enter your registered phone number to receive an OTP, then set a new password.</div>
+      <label style="margin-top:0">Registered Phone Number (with country code)</label>
+      <input id="owner-forgot-phone" type="tel" placeholder="e.g. +1234567890 or 9876543210"/>
+      <div class="err-msg" id="owner-forgot-err"></div>
+      <div id="owner-otp-box" style="display:none">
+        <label style="margin-top:0">Enter OTP from SMS</label>
+        <input id="owner-otp-code" type="text" maxlength="6" placeholder="6-digit code" class="otp-input"/>
+        <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="verifyOwnerOtp()">✅ Verify OTP</button>
+      </div>
+      <div id="owner-forgot-verified" style="display:none">
+        <label>New Password</label>
+        <input id="owner-forgot-newpass" type="password" placeholder="Min 6 characters"/>
+        <label>Confirm New Password</label>
+        <input id="owner-forgot-newpass2" type="password" placeholder="Re-enter"/>
+        <div class="err-msg" id="owner-forgot-reset-err"></div>
+        <button class="btn btn-success" style="width:100%;margin-top:8px" onclick="doOwnerResetPassword()">🔒 Set New Password</button>
+      </div>
+      <div id="owner-forgot-verify-btn-wrap" style="margin-top:8px">
+        <button class="btn btn-gold" style="width:100%" onclick="sendOtpToOwner()">📨 Send OTP via SMS</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px" onclick="verifyOwnerForgot()">Or verify by phone-match only (no OTP)</button>
+      </div>
+      <div id="recaptcha-container-owner"></div>
+      <button class="btn btn-ghost" style="width:100%;margin-top:6px" onclick="hideOwnerForgot()">✕ Cancel</button>
+    </div>
+
+    <div class="err-msg" id="owner-err"></div>
+    <button class="btn-auth btn-o" onclick="ownerLogin()">🔓 Enter Dashboard</button>
+    <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--text3)">
+      New owner? <span style="color:var(--green);cursor:pointer;font-weight:600" onclick="goOwnerSignup()">Sign up free →</span>
+    </div>
+    <button class="btn-back" onclick="goLanding()">← Back to Home</button>
+  </div>
+</div>
+
+<!-- ════ ADMIN LOGIN ════ -->
+<div id="screen-admin-login" class="screen auth-screen">
+  <div class="auth-box">
+    <div class="auth-head">
+      <div class="auth-badge ab-a">⚙️ Admin Access</div>
+      <div class="auth-title">Admin Login</div>
+      <div class="auth-sub">KiraaBook system administrator only</div>
+    </div>
+    <span class="field-label">Admin Passkey</span>
+    <input class="field-inp pf" id="admin-pass" type="password" placeholder="Enter admin passkey" onkeydown="if(event.key==='Enter')adminLogin()"/>
+    <div class="err-msg" id="admin-err"></div>
+    <button class="btn-auth btn-a" onclick="adminLogin()">⚙️ Enter Admin Panel</button>
+    <div style="text-align:center;margin-top:8px"><span style="font-size:11px;color:var(--orange);cursor:pointer;font-weight:600" onclick="openAdminResetModal()">🔑 Forgot passkey?</span></div>
+    <button class="btn-back" onclick="goLanding()">← Back to Home</button>
+  </div>
+</div>
+
+<!-- ════ TENANT LOGIN / REGISTRATION ════ -->
+<div id="screen-tenant-login" class="screen">
+  <div class="treg-scroll">
+    <!-- Step 1: Login -->
+    <div id="treg-s1" class="auth-box" style="max-width:400px;margin:auto">
+      <div class="auth-head">
+        <div class="auth-badge ab-t">🏠 Tenant Portal</div>
+        <div class="auth-title">Tenant Login</div>
+        <div class="auth-sub">Enter your name &amp; password</div>
+      </div>
+      <span class="field-label">Your Full Name</span>
+      <input class="field-inp gf" id="t-name-inp" placeholder="e.g. Suresh Kumar"/>
+      <span class="field-label">Password</span>
+      <input class="field-inp gf" id="t-pass-inp" type="password" placeholder="Your password" onkeydown="if(event.key==='Enter')tenantLogin()"/>
+      <span class="forgot-link" onclick="showForgotPassword()">Forgot password?</span>
+
+      <!-- Forgot password inline -->
+      <div id="forgot-box" style="display:none" class="reset-box">
+        <div class="reset-box-title">🔑 Reset Tenant Password</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500;line-height:1.6">Enter your registered phone to receive an OTP, then set a new password.</div>
+        <label style="margin-top:0">Registered Phone Number (with country code)</label>
+        <input id="forgot-phone" type="tel" placeholder="e.g. +1234567890 or 9876543210" style="margin-bottom:0"/>
+        <div class="err-msg" id="forgot-err"></div>
+        <div id="tenant-otp-box" style="display:none">
+          <label style="margin-top:0">Enter OTP from SMS</label>
+          <input id="tenant-otp-code" type="text" maxlength="6" placeholder="6-digit code" class="otp-input"/>
+          <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="verifyTenantOtp()">✅ Verify OTP</button>
+        </div>
+        <div id="forgot-verified" style="display:none">
+          <label>New Password</label>
+          <input id="forgot-newpass" type="password" placeholder="Min 6 characters"/>
+          <label>Confirm New Password</label>
+          <input id="forgot-newpass2" type="password" placeholder="Re-enter"/>
+          <div class="err-msg" id="forgot-reset-err"></div>
+          <button class="btn btn-success" style="width:100%;margin-top:8px" onclick="doResetPassword()">🔒 Set New Password</button>
+        </div>
+        <div id="forgot-verify-btn-wrap" style="margin-top:8px">
+          <button class="btn btn-gold" style="width:100%" onclick="sendOtpToTenant()">📨 Send OTP via SMS</button>
+          <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px" onclick="verifyForgotPhone()">Or verify by phone-match only (no OTP)</button>
+        </div>
+        <div id="recaptcha-container-tenant"></div>
+        <button class="btn btn-ghost" style="width:100%;margin-top:6px" onclick="hideForgotPassword()">✕ Cancel</button>
+      </div>
+
+      <div class="err-msg" id="t-err"></div>
+      <button class="btn-auth btn-t" onclick="tenantLogin()">🔓 Login</button>
+      <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--text3)">
+        New tenant? <span style="color:var(--gold);cursor:pointer;font-weight:600" onclick="showTenantRegister()">Register here →</span>
+      </div>
+      <button class="btn-back" onclick="goLanding()">← Back to Home</button>
+    </div>
+
+    <!-- Step 1b: New tenant name entry -->
+    <div id="treg-s1b" style="display:none" class="auth-box" style="max-width:400px;margin:auto">
+      <div class="auth-head">
+        <div class="auth-badge ab-t">🏠 New Tenant</div>
+        <div class="auth-title">Register</div>
+        <div class="auth-sub">Enter your name to begin</div>
+      </div>
+      <div id="tr-owner-banner" style="display:none;background:var(--green-g);border:1px solid rgba(34,197,94,.25);border-radius:var(--rs);padding:10px;margin-bottom:12px">
+        <div style="font-size:11px;color:var(--text3);font-weight:600;margin-bottom:2px">🔗 Linked Owner</div>
+        <div id="tr-owner-banner-name" style="font-size:13px;font-weight:700"></div>
+        <div id="tr-owner-banner-id" style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:2px"></div>
+      </div>
+      <span class="field-label">Your Full Name *</span>
+      <input class="field-inp gf" id="t-newname-inp" placeholder="e.g. Suresh Kumar" onkeydown="if(event.key==='Enter')tenantLookup()"/>
+      <div id="tr-owner-id-wrap" style="display:none">
+        <span class="field-label">Owner ID * <span style="color:var(--text3);font-weight:500">(get from your property owner)</span></span>
+        <input class="field-inp gf" id="t-newowner-inp" placeholder="e.g. KBABCD1234" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase"/>
+      </div>
+      <div class="err-msg" id="t-new-err"></div>
+      <button class="btn-auth btn-t" onclick="tenantLookup()">🔍 Continue</button>
+      <button class="btn-back" onclick="showTenantLoginStep1()">← Back to Login</button>
+    </div>
+
+    <!-- Step 2: Registration form -->
+    <div id="treg-s2" style="display:none" class="treg-box">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+        <div style="width:36px;height:36px;border-radius:9px;background:var(--gold-g);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid var(--gold-g)">📋</div>
+        <div><div style="font-size:15px;font-weight:800;letter-spacing:-.3px">Fill Your Details</div><div style="font-size:11px;color:var(--text3);font-weight:500">Owner will review and approve your profile</div></div>
+      </div>
+
+      <!-- PROFILE PHOTO -->
+      <label>📸 Profile Photo *</label>
+      <div style="display:flex;flex-direction:column;align-items:center;margin-top:8px">
+        <div class="profile-photo-big" id="prof-prev" onclick="triggerFile('prof-file','prof-data','prof-prev',true)">
+          <span style="font-size:30px">👤</span>
+          <span style="font-size:10px;color:var(--text3);font-weight:600;margin-top:4px">Tap to upload</span>
+        </div>
+        <div class="photo-btns" style="width:100%;max-width:280px">
+          <button class="pbtn" onclick="triggerFile('prof-file','prof-data','prof-prev',false)">📁 Gallery</button>
+          <button class="pbtn" onclick="triggerFile('prof-file','prof-data','prof-prev',true)">📷 Selfie</button>
+        </div>
+        <input type="file" id="prof-file" accept="image/*" style="display:none" onchange="handlePhotoFile('prof-file','prof-data','prof-prev',true)"/>
+        <input type="hidden" id="prof-data"/>
+      </div>
+
+      <!-- BASIC INFO -->
+      <div class="frow" style="margin-top:6px">
+        <div><label>Full Name *</label><input id="tr-name" style="background:var(--s3);cursor:not-allowed" readonly/></div>
+        <div><label>Room No. *</label><input id="tr-room" placeholder="e.g. 101"/></div>
+      </div>
+      <label>Monthly Rent *</label>
+      <input id="tr-rent" type="number" placeholder="e.g. 5000"/>
+      <div class="frow">
+        <div><label>Phone *</label><input id="tr-phone" type="tel" placeholder="10-digit"/></div>
+        <div><label>Alt. Phone</label><input id="tr-alt" type="tel" placeholder="Optional"/></div>
+      </div>
+      <label>Email Address (optional)</label>
+      <input id="tr-email" type="email" placeholder="you@example.com (optional)"/>
+      <label>Permanent Address</label>
+      <input id="tr-address" placeholder="Your home address"/>
+
+      <!-- PASSWORD SETUP -->
+      <div class="pass-setup-box" style="margin-top:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">🔒 Create Your Login Password</div>
+        <div style="font-size:10px;color:var(--text3);font-weight:500;margin-bottom:8px;line-height:1.6">You will use your name + this password to login next time.</div>
+        <label style="margin-top:0">Create Password *</label>
+        <input id="tr-password" type="password" placeholder="Minimum 6 characters"/>
+        <label>Confirm Password *</label>
+        <input id="tr-password2" type="password" placeholder="Re-enter password"/>
+      </div>
+
+      <!-- MOVE-IN DATE -->
+      <label>📅 Move-in Date *</label>
+      <div class="movein-card">
+        <input id="tr-date" type="date" oninput="updateMoveinDisplay()" style="margin-bottom:8px"/>
+        <div class="movein-display" id="movein-display" style="display:none">
+          <div class="movein-big" id="movein-big">–</div>
+          <div class="movein-sub" id="movein-sub">–</div>
+        </div>
+      </div>
+
+      <label>Notes / Special Requirements</label>
+      <textarea id="tr-notes" rows="2" placeholder="Any special notes..." style="resize:none"></textarea>
+
+      <!-- ID PROOF -->
+      <label>🪪 ID Proof</label>
+      <div class="sec-box">
+        <select id="tr-idtype" onchange="showIdUpload()">
+          <option value="">Select ID Type</option>
+          <option>Passport</option><option>National ID</option>
+          <option>Driver License</option><option>Aadhaar Card</option>
+          <option>PAN Card</option><option>Voter ID</option>
+          <option>Social Security Card</option><option>Other Government ID</option>
+        </select>
+        <div id="id-upload-area" style="display:none;margin-top:12px">
+          <label style="margin-top:0">ID Number</label>
+          <input id="tr-idnum" placeholder="Enter your ID number"/>
+          <label>Upload <span id="id-type-lbl">ID</span> Photo</label>
+          <div class="photo-box photo-box-sm" id="id-prev" onclick="triggerFile('id-file','id-data','id-prev',false)">
+            <span style="font-size:22px">📄</span>
+            <span style="font-size:11px;color:var(--text3);font-weight:600">Tap to upload document</span>
+          </div>
+          <input type="file" id="id-file" accept="image/*" style="display:none" onchange="handlePhotoFile('id-file','id-data','id-prev',false)"/>
+          <div class="photo-btns">
+            <button class="pbtn" onclick="triggerFile('id-file','id-data','id-prev',false)">📁 Upload</button>
+            <button class="pbtn" onclick="triggerFile('id-file','id-data','id-prev',true)">📷 Scan</button>
+          </div>
+          <input type="hidden" id="id-data"/>
+        </div>
+      </div>
+
+      <!-- TENANT VERIFICATION -->
+      <label>🛡️ Tenant Verification Document</label>
+      <div class="police-box">
+        <div style="font-size:11px;font-weight:700;color:var(--orange);margin-bottom:6px">⚠️ May be required by local law</div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.65;margin-bottom:8px;font-weight:500">If your jurisdiction requires tenant verification (police check, residency registration, etc.), upload the completed form here.</div>
+        <div class="photo-box photo-box-sm" id="pv-prev" onclick="triggerFile('pv-file','pv-data','pv-prev',false)">
+          <span style="font-size:22px">📋</span>
+          <span style="font-size:11px;color:var(--text3);font-weight:600">Upload verification document</span>
+        </div>
+        <input type="file" id="pv-file" accept="image/*" style="display:none" onchange="handlePhotoFile('pv-file','pv-data','pv-prev',false)"/>
+        <div class="photo-btns" style="margin-top:7px">
+          <button class="pbtn" onclick="triggerFile('pv-file','pv-data','pv-prev',false)">📁 Upload</button>
+          <button class="pbtn" onclick="triggerFile('pv-file','pv-data','pv-prev',true)">📷 Scan</button>
+        </div>
+        <input type="hidden" id="pv-data"/>
+      </div>
+
+      <button class="btn btn-primary" id="submit-form-btn" onclick="showTenantPolicyModal()">📜 Review &amp; Accept Terms</button>
+      <button class="btn-back" style="margin-top:10px" onclick="showTenantLoginStep1()">← Back to Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ OWNER DASHBOARD ════ -->
+<div id="screen-owner" class="screen">
+  <div class="app-header">
+    <div class="h-brand"><div class="h-ico">🏠</div><div class="h-name">KiraaBook</div></div>
+    <div class="h-right">
+      <button class="h-quick-pill" onclick="openFaqModal()" title="Open FAQ">❓ FAQ</button>
+      <button class="h-quick-pill" onclick="openContactModal()" title="Contact us">📞 Contact Us</button>
+      <div class="h-pill hp-o">👑 Owner</div>
+      <div class="h-user-info"><div class="h-user-name" id="owner-display-name">–</div></div>
+      <div class="bell-wrap" onclick="toggleNotifDropdown(event)">
+        <span class="bell-icon">🔔</span>
+        <span class="bell-badge" id="bell-badge" style="display:none">0</span>
+        <div class="notif-dropdown" id="notif-dropdown" onclick="event.stopPropagation()">
+          <div class="notif-head">
+            <span style="font-weight:700;font-size:13px">🔔 Notifications</span>
+            <button class="btn btn-ghost" style="padding:3px 8px;font-size:10px" onclick="markAllNotifsRead()">Mark all read</button>
+          </div>
+          <div id="notif-list"></div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+  </div>
+  <div class="dash-wrap">
+    <!-- TRIAL / PLAN BANNER -->
+    <div id="trial-banner-wrap"></div>
+
+    <!-- TENANT LIMIT WARNING -->
+    <div id="tenant-limit-warn" style="display:none" class="limit-warn">
+      <span style="font-size:18px">⚠️</span>
+      <span id="tenant-limit-msg"></span>
+    </div>
+
+    <div class="invite-banner" id="owner-invite-banner">
+      <div><div class="invite-text">🔗 Share this link with your tenants:</div><div class="invite-link" id="invite-link-text">Loading...</div></div>
+      <button class="btn btn-cyan" onclick="copyInviteLink()" style="flex-shrink:0">📋 Copy</button>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-lbl">Total Tenants</div><div class="stat-val sv-b" id="s-total">0</div><div class="stat-sub" id="s-total-sub">registered</div></div>
+      <div class="stat-card"><div class="stat-lbl">Collected</div><div class="stat-val sv-g" id="s-col">₹0</div><div class="stat-sub">this month</div></div>
+      <div class="stat-card"><div class="stat-lbl">Pending</div><div class="stat-val sv-r" id="s-pend">₹0</div><div class="stat-sub">not paid</div></div>
+      <div class="stat-card"><div class="stat-lbl">Rooms Vacant</div><div class="stat-val sv-o" id="s-vacant">0</div><div class="stat-sub">available</div></div>
+    </div>
+
+    <!-- PAYMENT CLAIMS TO APPROVE -->
+    <div id="claims-section" style="display:none;margin-bottom:14px">
+      <div style="background:var(--cyan-g);border:1px solid rgba(34,211,238,.3);border-radius:var(--r);padding:14px 16px">
+        <div style="font-weight:700;font-size:13px;color:var(--cyan);margin-bottom:10px">💰 Payment Confirmations Awaiting Approval</div>
+        <div id="claims-list"></div>
+      </div>
+    </div>
+
+    <!-- REMINDERS TO SEND -->
+    <div id="reminders-section" style="display:none;margin-bottom:14px">
+      <div style="background:var(--orange-g);border:1px solid rgba(251,146,60,.3);border-radius:var(--r);padding:14px 16px">
+        <div style="font-weight:700;font-size:13px;color:var(--orange);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <span>🔔 Rent Reminders to Send</span>
+          <button class="btn btn-warn" style="padding:5px 10px;font-size:10px" onclick="sendAllReminders()">📨 Send All via WhatsApp</button>
+        </div>
+        <div id="reminders-list"></div>
+      </div>
+    </div>
+
+    <!-- v13.x: PENDING APPROVALS BANNER (shows count of items needing owner attention) -->
+    <div id="pending-approvals-banner" style="display:none;margin-bottom:14px"></div>
+
+    <div id="overdue-section" style="display:none;margin-bottom:14px">
+      <div style="background:var(--red-g);border:1px solid rgba(244,63,94,.3);border-radius:var(--r);padding:14px 16px">
+        <div style="font-weight:700;font-size:13px;color:var(--red);margin-bottom:8px">🚨 Overdue Rent Alerts (30+ days)</div>
+        <div id="overdue-list"></div>
+      </div>
+    </div>
+    <div id="vacant-notices-section" style="display:none;margin-bottom:14px">
+      <div style="background:var(--cyan-g);border:1px solid rgba(34,211,238,.25);border-radius:var(--r);padding:14px 16px">
+        <div style="font-weight:700;font-size:13px;color:var(--cyan);margin-bottom:8px">📦 Vacant Notices from Tenants</div>
+        <div id="vacant-notices-list"></div>
+      </div>
+    </div>
+    <div class="tab-bar">
+      <button class="t-tab active" onclick="switchOwnerTab('properties',this)">🏘️ Properties &amp; Rooms</button>
+      <button class="t-tab" onclick="switchOwnerTab('add-tenant',this)">➕ Add Tenant</button>
+      <button class="t-tab" onclick="switchOwnerTab('tenants',this)">🏠 Manage Tenants</button>
+      <button class="t-tab" onclick="switchOwnerTab('billing',this)">📄 Create Bill</button>
+      <button class="t-tab" onclick="switchOwnerTab('allbills',this)">📋 All Bills</button>
+      <button class="t-tab" onclick="switchOwnerTab('roomhist',this)">📜 Room History</button>
+      <button class="t-tab" onclick="switchOwnerTab('maintenance',this)">🔧 Maintenance</button>
+      <button class="t-tab" onclick="switchOwnerTab('account',this)">👤 My Account</button>
+    </div>
+
+    <!-- TAB: TENANTS -->
+    <div id="tab-tenants" style="display:none">
+      <div class="search-wrap"><span class="search-ico">🔍</span><input id="search" placeholder="Search by name, room, phone, or tenant ID (KB…)..." oninput="renderTenantList()"/></div>
+      <div class="filter-bar">
+        <div class="f-tab active" onclick="setFilter('all',this)">All</div>
+        <div class="f-tab" onclick="setFilter('pending',this)">⏳ Pending</div>
+        <div class="f-tab" onclick="setFilter('unpaid',this)">Unpaid</div>
+        <div class="f-tab" onclick="setFilter('paid',this)">Paid</div>
+        <div class="f-tab" onclick="setFilter('nopv',this)">⚠️ No Verification</div>
+        <div class="f-tab" onclick="setFilter('overdue',this)">🔴 Overdue</div>
+        <div class="f-tab" onclick="setFilter('deactivated',this)">⛔ Deactivated</div>
+      </div>
+      <ul id="tenant-list"></ul>
+    </div>
+
+    <!-- TAB: ADD TENANT -->
+    <div id="tab-add-tenant" style="display:none">
+      <div class="panel">
+        <div class="panel-title"><div class="panel-dot"></div>Add New Tenant (Owner Side)</div>
+        <div id="add-tenant-info" style="font-size:12px;color:var(--text3);font-weight:500;margin-bottom:14px;background:var(--blue-g);border:1px solid rgba(79,156,249,.2);border-radius:var(--rs);padding:10px">
+          💡 Add tenants directly. They can login later via Tenant Portal with name + password.
+        </div>
+        <label>🏠 Property * <span style="font-size:10px;color:var(--text3);font-weight:500">(or leave blank if you only have one)</span></label>
+        <select id="ot-property">
+          <option value="">— Default Property —</option>
+        </select>
+        <div class="frow">
+          <div><label>Full Name *</label><input id="ot-name" placeholder="Tenant full name"/></div>
+          <div><label>Room No. *</label><input id="ot-room" placeholder="e.g. 101"/></div>
+        </div>
+        <label>Monthly Rent *</label>
+        <input id="ot-rent" type="number" placeholder="e.g. 5000"/>
+
+        <!-- v12: Security deposit & advance rent -->
+        <div class="frow">
+          <div>
+            <label>🔒 Security Deposit <span style="font-size:9px;color:var(--text3)">(refundable)</span></label>
+            <input id="ot-security" type="number" placeholder="e.g. 10000" min="0"/>
+          </div>
+          <div>
+            <label>💰 Advance Rent Paid <span style="font-size:9px;color:var(--text3)">(credit balance)</span></label>
+            <input id="ot-advance" type="number" placeholder="e.g. 5000" min="0"/>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);font-weight:500;margin-bottom:8px;line-height:1.5">
+          💡 <strong>Security deposit</strong> is held and refunded when tenant vacates.<br>
+          💡 <strong>Advance rent</strong> is a credit you can apply manually toward future bills.
+        </div>
+
+        <label>Bill Mode</label>
+        <select id="ot-billmode">
+          <option value="auto">Automatic (same rent every month, auto-created)</option>
+          <option value="manual">Manual (owner creates bill each month)</option>
+        </select>
+        <div class="frow">
+          <div><label>Phone</label><input id="ot-phone" type="tel" placeholder="10-digit"/></div>
+          <div><label>Alt. Phone</label><input id="ot-alt" type="tel" placeholder="Optional"/></div>
+        </div>
+        <label>Email Address</label>
+        <input id="ot-email" type="email" placeholder="tenant@example.com (optional)"/>
+        <label>Address</label>
+        <input id="ot-address" placeholder="Permanent address"/>
+        <label>Move-in Date</label>
+        <input id="ot-date" type="date"/>
+        <div class="frow">
+          <div><label>ID Proof</label><select id="ot-idtype"><option value="">Select</option><option>Passport</option><option>National ID</option><option>Driver License</option><option>Aadhaar Card</option><option>PAN Card</option><option>Voter ID</option><option>Social Security Card</option><option>Other Government ID</option></select></div>
+          <div><label>ID Number</label><input id="ot-idnum" placeholder="ID number"/></div>
+        </div>
+        <label>Notes</label>
+        <textarea id="ot-notes" rows="2" placeholder="Any notes..." style="resize:none"></textarea>
+        <button class="btn btn-primary" id="add-tenant-btn" onclick="ownerAddTenant()">➕ Add Tenant</button>
+      </div>
+    </div>
+
+    <!-- TAB: CREATE BILL -->
+    <div id="tab-billing" style="display:none">
+      <div class="panel">
+        <div class="panel-title"><div class="panel-dot"></div>Create Monthly Bill</div>
+        <label>Select Tenant *</label>
+        <select id="bill-tenant-sel"></select>
+        <div class="frow">
+          <div>
+            <label>Bill Month *</label>
+            <select id="bill-month-sel" onchange="syncBillMonthValue()">
+              <option value="">— Select month —</option>
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+          </div>
+          <div>
+            <label>Year *</label>
+            <select id="bill-year-sel" onchange="syncBillMonthValue()"></select>
+          </div>
+        </div>
+        <input type="hidden" id="bill-month"/>
+        <label>Due Date *</label>
+        <input id="bill-due" type="date"/>
+        <label style="margin-top:14px">Bill Items</label>
+        <div id="bill-items-list">
+          <div class="bill-item-row"><input placeholder="Rent" value="Rent" oninput="updateBillPreview()"/><input type="number" id="bill-rent-amt" placeholder="₹ Amount" oninput="updateBillPreview()"/><button class="btn btn-danger" style="padding:7px 9px" onclick="removeBillItem(this)">✕</button></div>
+          <div class="bill-item-row"><input value="Electricity Bill" oninput="updateBillPreview()"/><input type="number" placeholder="₹ Amount" oninput="updateBillPreview()"/><button class="btn btn-danger" style="padding:7px 9px" onclick="removeBillItem(this)">✕</button></div>
+          <div class="bill-item-row"><input value="Maintenance" oninput="updateBillPreview()"/><input type="number" placeholder="₹ Amount" oninput="updateBillPreview()"/><button class="btn btn-danger" style="padding:7px 9px" onclick="removeBillItem(this)">✕</button></div>
+        </div>
+        <button class="add-item-btn" onclick="addBillItem()">＋ Add Item</button>
+        <div class="bill-total">
+          <span style="font-size:13px;font-weight:600;color:var(--text3)">Total Payable</span>
+          <span class="bill-total-amt" id="bill-total-preview">0</span>
+        </div>
+        <button class="btn btn-primary" onclick="createBill()">📤 Create &amp; Send Bill</button>
+      </div>
+    </div>
+
+    <!-- TAB: ALL BILLS -->
+    <div id="tab-allbills" style="display:none">
+      <div class="filter-bar">
+        <div class="f-tab active" onclick="setBillFilter('all',this)">All</div>
+        <div class="f-tab" onclick="setBillFilter('due',this)">⚠️ Due Soon</div>
+        <div class="f-tab" onclick="setBillFilter('overdue',this)">🔴 Overdue</div>
+        <div class="f-tab" onclick="setBillFilter('paid',this)">✅ Paid</div>
+      </div>
+      <div id="all-bills-list"></div>
+    </div>
+
+    <!-- TAB: PROPERTIES (v12) -->
+    <div id="tab-properties">
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-title"><div class="panel-dot"></div>🏘️ My Properties</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px;font-weight:500;line-height:1.5">Manage all the buildings/houses you rent out. Each property can have multiple rooms and tenants.</div>
+        <button class="btn btn-primary" onclick="openPropertyForm()" style="margin-bottom:12px">➕ Add New Property</button>
+
+        <!-- Add/Edit Property Form -->
+        <div id="property-form" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:14px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--gold)" id="property-form-title">➕ Add New Property</div>
+          <input type="hidden" id="prop-id"/>
+          <label>Property Name *</label>
+          <input id="prop-name" placeholder="e.g. Sunshine Apartments, House #42"/>
+          <label>Address *</label>
+          <textarea id="prop-address" rows="2" placeholder="Full address" style="resize:none"></textarea>
+          <div class="frow">
+            <div>
+              <label>Type</label>
+              <select id="prop-type">
+                <option value="apartment">Apartment Building</option>
+                <option value="house">Independent House</option>
+                <option value="villa">Villa</option>
+                <option value="pg">PG / Hostel</option>
+                <option value="commercial">Commercial</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label>Total Units / Rooms</label>
+              <input id="prop-units" type="number" placeholder="e.g. 10" min="1"/>
+            </div>
+          </div>
+          <label>Notes (optional)</label>
+          <input id="prop-notes" placeholder="e.g. Has parking, 3 floors, gated"/>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn btn-success" onclick="saveProperty()">💾 Save Property</button>
+            <button class="btn btn-ghost" onclick="cancelPropertyForm()">Cancel</button>
+          </div>
+        </div>
+
+        <div id="properties-list"></div>
+      </div>
+    </div>
+
+    <!-- TAB: MAINTENANCE (v12) -->
+    <div id="tab-maintenance" style="display:none">
+      <div class="panel">
+        <div class="panel-title"><div class="panel-dot"></div>🔧 Maintenance Tickets</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px;font-weight:500;line-height:1.5">Issues reported by your tenants. Update status from the dropdown on each ticket — tenants see the same status on their dashboard.</div>
+
+        <!-- v13: Summary stat tiles -->
+        <div id="maint-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px"></div>
+
+        <!-- Filter chips -->
+        <div class="filter-row" style="margin-bottom:12px">
+          <div class="f-tab active" onclick="setMaintFilter('all',this)">All</div>
+          <div class="f-tab" onclick="setMaintFilter('open',this)">🆕 Open</div>
+          <div class="f-tab" onclick="setMaintFilter('in_progress',this)">⏳ In Progress</div>
+          <div class="f-tab" onclick="setMaintFilter('resolved',this)">✅ Resolved</div>
+          <div class="f-tab" onclick="setMaintFilter('closed',this)">🔒 Closed</div>
+          <div class="f-tab" onclick="setMaintFilter('urgent',this)">🚨 Urgent</div>
+        </div>
+
+        <div id="maint-list"></div>
+      </div>
+    </div>
+
+    <!-- TAB: ROOMS -->
+    <div id="tab-rooms" style="display:none">
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-title"><div class="panel-dot"></div>Add/Manage Rooms</div>
+        <div class="frow">
+          <div><label>Room Number</label><input id="new-room-num" placeholder="e.g. 201"/></div>
+          <div><label>Floor</label><input id="new-room-floor" placeholder="e.g. 2nd Floor"/></div>
+        </div>
+        <label>Notes</label>
+        <input id="new-room-notes" placeholder="e.g. 1BHK, AC room"/>
+        <button class="btn btn-primary" onclick="addRoom()">➕ Add Room</button>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><div class="panel-dot"></div>Room Occupancy</div>
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="background:var(--green-g);border:1px solid rgba(34,197,94,.2);border-radius:var(--rs);padding:10px 16px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--green)" id="occ-count">0</div><div style="font-size:10px;color:var(--text3);font-weight:500">Occupied</div></div>
+          <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 16px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--gold)" id="vac-count">0</div><div style="font-size:10px;color:var(--text3);font-weight:500">Vacant</div></div>
+        </div>
+        <div class="room-grid" id="room-grid"></div>
+      </div>
+    </div>
+
+    <!-- TAB: ROOM HISTORY (v10) -->
+    <div id="tab-roomhist" style="display:none">
+      <div class="panel">
+        <div class="panel-title"><div class="panel-dot"></div>Room Occupancy History</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500">Complete history of who stayed in each room. Auto-tracked when tenants are added, change rooms, or vacate.</div>
+        <input id="rh-search" placeholder="🔍 Search by room or tenant name" oninput="renderRoomHistory()" style="margin-bottom:10px"/>
+        <div id="room-history-list"></div>
+      </div>
+    </div>
+
+    <!-- FAQ and Contact Us moved to modals — see #faq-modal and #contact-modal at end of body -->
+
+    <!-- TAB: MY ACCOUNT -->
+    <div id="tab-account" style="display:none">
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-title"><div class="panel-dot"></div>My Profile</div>
+        <div class="owner-pic-wrap" onclick="document.getElementById('owner-pic-file').click()">
+          <div class="owner-pic-circle" id="owner-pic-circle">👤</div>
+          <div class="owner-pic-edit">📷</div>
+        </div>
+        <input type="file" id="owner-pic-file" accept="image/*" style="display:none" onchange="uploadOwnerPic()"/>
+        <div style="font-size:10px;color:var(--text3);text-align:center;font-weight:500;margin-bottom:14px">Tap photo to upload/change</div>
+        <div id="account-details"></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="showOwnerEditProfile()">✏️ Edit Profile</button>
+          <button class="btn btn-edit" onclick="upgradeAccount()">💎 Upgrade Plan</button>
+        </div>
+      </div>
+
+      <!-- Edit Profile Form (hidden until Edit clicked) -->
+      <div class="panel" id="owner-edit-profile-form" style="display:none;margin-bottom:14px">
+        <div class="panel-title"><div class="panel-dot"></div>Edit My Profile</div>
+        <label>Full Name</label><input id="oep-name"/>
+        <label>Phone Number</label><input id="oep-phone" type="tel"/>
+        <label>Email Address</label><input id="oep-email" type="email"/>
+        <label>New Password (leave blank to keep current)</label><input id="oep-pass" type="password" placeholder="Min 6 chars"/>
+        <label>Confirm New Password</label><input id="oep-pass2" type="password"/>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="saveOwnerEditProfile()">💾 Save Changes</button>
+          <button class="btn btn-ghost" onclick="cancelOwnerEditProfile()">Cancel</button>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-title"><div class="panel-dot"></div>⚙️ Settings</div>
+        <div class="set-row">
+          <div class="set-info">
+            <div class="set-label">🔔 Browser Notifications</div>
+            <div class="set-desc">Receive desktop/mobile alerts when tab is open</div>
+          </div>
+          <div class="set-toggle" id="set-notif-toggle" onclick="toggleBrowserNotifs()"><div class="set-toggle-knob"></div></div>
+        </div>
+        <div class="set-row">
+          <div class="set-info">
+            <div class="set-label">📱 Push Notifications (FCM)</div>
+            <div class="set-desc">Background mobile push (requires sw file & FCM setup)</div>
+          </div>
+          <button class="btn btn-edit" style="font-size:10px;padding:6px 12px" onclick="enablePushNotifs()">Enable</button>
+        </div>
+        <div class="set-row">
+          <div class="set-info">
+            <div class="set-label">🌍 Currency Symbol</div>
+            <div class="set-desc">Display currency for bills and rents</div>
+          </div>
+          <select id="set-currency" onchange="saveCurrency()" style="width:auto;flex:0;min-width:80px;margin:0">
+            <option value="₹">₹ INR</option>
+            <option value="$">$ USD</option>
+            <option value="€">€ EUR</option>
+            <option value="£">£ GBP</option>
+            <option value="¥">¥ JPY</option>
+            <option value="A$">A$ AUD</option>
+            <option value="C$">C$ CAD</option>
+            <option value="₽">₽ RUB</option>
+            <option value="﷼">﷼ SAR</option>
+            <option value="د.إ">د.إ AED</option>
+          </select>
+        </div>
+        <div class="set-row">
+          <div class="set-info">
+            <div class="set-label">💾 Export My Data</div>
+            <div class="set-desc">Download all your tenants &amp; bills as JSON</div>
+          </div>
+          <button class="btn btn-edit" style="font-size:10px;padding:6px 12px" onclick="exportMyData()">Export</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="logout()">🚪 Logout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ TENANT VIEW ════ -->
+<div id="screen-tenant" class="screen">
+  <div class="app-header">
+    <div class="h-brand"><div class="h-ico">🏠</div><div class="h-name">KiraaBook</div></div>
+    <div class="h-right"><div class="h-pill hp-t">🏠 Tenant</div><button class="btn-logout" onclick="logout()">Logout</button></div>
+  </div>
+  <div class="tv-content">
+    <!-- v13.x: Compact horizontal hero -->
+    <div class="tv-hero">
+      <div class="tv-avatar" id="tv-avatar"></div>
+      <div class="tv-hero-info">
+        <div class="tv-hero-name" id="tv-name">–</div>
+        <div class="tv-hero-meta">
+          <span id="tv-room">–</span>
+          <span style="opacity:.5">·</span>
+          <span class="uid" id="tv-uid">–</span>
+        </div>
+      </div>
+      <div class="tv-hero-status">
+        <div class="tv-status" id="tv-status">–</div>
+      </div>
+    </div>
+    <div id="tv-alert" style="display:none" class="alert-bar">
+      <span style="font-size:18px" id="tv-alert-icon">⚠️</span>
+      <span style="font-size:12px;font-weight:600;color:var(--orange);flex:1" id="tv-alert-txt"></span>
+    </div>
+
+    <!-- Quick action grid (v11: friendlier) -->
+    <div class="tv-quick-grid">
+      <div class="tv-qaction" onclick="goTenantEditProfile()">
+        <div class="tv-qa-icon">✏️</div>
+        <div class="tv-qa-label">Edit Profile</div>
+      </div>
+      <div class="tv-qaction" onclick="document.getElementById('tv-payment-section').scrollIntoView({behavior:'smooth'})">
+        <div class="tv-qa-icon">💳</div>
+        <div class="tv-qa-label">Pay Rent</div>
+      </div>
+      <div class="tv-qaction" onclick="downloadAllTenantBillsPdf()">
+        <div class="tv-qa-icon">⬇️</div>
+        <div class="tv-qa-label">Download Bills</div>
+      </div>
+      <div class="tv-qaction" onclick="document.getElementById('tv-vacant-card').scrollIntoView({behavior:'smooth'})">
+        <div class="tv-qa-icon">📦</div>
+        <div class="tv-qa-label">Vacate Notice</div>
+      </div>
+      <div class="tv-qaction" onclick="document.getElementById('tv-maint-card').scrollIntoView({behavior:'smooth'});setTimeout(()=>openTenantMaintForm(),400)">
+        <div class="tv-qa-icon">🔧</div>
+        <div class="tv-qa-label">Maintenance</div>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION 1: OVERVIEW ═══ -->
+    <div class="tv-section-header">💰 Financial Overview</div>
+    <div class="tv-cards-grid">
+      <div class="tv-card"><div class="tv-card-title">💰 Monthly Rent</div><div class="tv-rent-big" id="tv-rent">–</div><div class="tv-rent-sub" id="tv-mo">–</div></div>
+
+      <!-- v12: Financial Summary -->
+      <div class="tv-card" id="tv-financial-card">
+        <div class="tv-card-title">💼 Financial Summary</div>
+        <div id="tv-financial-content" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px"></div>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION 2: ACTIONS ═══ -->
+    <div class="tv-section-header">⚡ Take Action</div>
+    <div class="tv-card" id="tv-payment-section">
+      <div class="tv-card-title">💳 Make Payment</div>
+      <div id="tv-pay-content">
+        <button class="tv-pay-btn" onclick="openPaymentModal()">💳 Pay via UPI / Online</button>
+        <button class="tv-claim-btn" onclick="openClaimModal()">✅ I Have Paid — Notify Owner</button>
+      </div>
+    </div>
+
+    <!-- v13.x: Maintenance moved HIGH UP — right above Vacate Notice -->
+    <div class="tv-card" id="tv-maint-card">
+      <div class="tv-card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>🔧 Maintenance Requests</span>
+        <button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="openTenantMaintForm()">➕ Report Issue</button>
+      </div>
+      <div id="tv-maint-list" style="margin-top:8px"><div style="font-size:11px;color:var(--text3);font-weight:500;text-align:center;padding:8px 0">No maintenance requests yet</div></div>
+
+      <!-- Tenant maintenance form (inline) -->
+      <div id="tv-maint-form" style="display:none;background:var(--s3);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-top:10px">
+        <div style="font-weight:700;font-size:12px;margin-bottom:8px">🔧 Report a New Issue</div>
+        <label>Category</label>
+        <select id="tv-maint-cat">
+          <option value="electrical">⚡ Electrical</option>
+          <option value="plumbing">🚿 Plumbing</option>
+          <option value="appliance">🔌 Appliance</option>
+          <option value="furniture">🪑 Furniture</option>
+          <option value="paint_walls">🎨 Paint / Walls</option>
+          <option value="cleaning">🧹 Cleaning</option>
+          <option value="security">🔒 Security / Lock</option>
+          <option value="other">📋 Other</option>
+        </select>
+        <label>Priority</label>
+        <select id="tv-maint-pri">
+          <option value="low">🟢 Low — When convenient</option>
+          <option value="medium" selected>🟡 Medium — This week</option>
+          <option value="high">🟠 High — Within 1-2 days</option>
+          <option value="urgent">🔴 Urgent — Today / unsafe</option>
+        </select>
+        <label>Describe the Issue *</label>
+        <textarea id="tv-maint-desc" rows="3" placeholder="What's wrong? Be specific (e.g. 'Kitchen tap is leaking constantly')" style="resize:none"></textarea>
+        <label>Photo (optional)</label>
+        <div class="photo-box photo-box-sm" id="tv-maint-photo-prev" onclick="document.getElementById('tv-maint-photo-file').click()" style="height:90px">
+          <span style="font-size:18px">📷</span>
+          <span style="font-size:10px;color:var(--text3);font-weight:600">Tap to add photo</span>
+        </div>
+        <input type="file" id="tv-maint-photo-file" accept="image/*" style="display:none" onchange="handlePhotoFile('tv-maint-photo-file','tv-maint-photo-data','tv-maint-photo-prev',false)"/>
+        <input type="hidden" id="tv-maint-photo-data"/>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn btn-success" onclick="submitTenantMaintTicket()" style="flex:1">📤 Submit Ticket</button>
+          <button class="btn btn-ghost" onclick="closeTenantMaintForm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tv-card" id="tv-vacant-card">
+      <div class="tv-card-title">📦 Vacating Notice</div>
+      <div class="tv-vacant-section">
+        <div style="font-size:12px;font-weight:600;color:var(--cyan);margin-bottom:10px">Planning to vacate? Notify your owner:</div>
+        <label>Select Vacating Date</label>
+        <input type="date" id="vacant-date" style="margin-bottom:8px"/>
+        <label>Reason (Optional)</label>
+        <textarea id="vacant-reason" rows="2" placeholder="e.g. Moving to another city..." style="resize:none;margin-bottom:8px"></textarea>
+        <button class="btn btn-cyan" style="width:100%" onclick="sendVacantNotice()">📨 Send Vacant Notice to Owner</button>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION 3: INFORMATION ═══ -->
+    <div class="tv-section-header">📚 Records &amp; History</div>
+    <div class="tv-cards-grid">
+      <div class="tv-card">
+        <div class="tv-card-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>📄 Your Bills</span>
+          <button class="btn pdf-btn" style="padding:5px 10px;font-size:10px" onclick="downloadAllTenantBillsPdf()">⬇️ Download PDF</button>
+        </div>
+        <div id="tv-bills-list"><div style="font-size:12px;color:var(--text3);font-weight:500;text-align:center;padding:8px 0">No bills yet</div></div>
+      </div>
+      <div class="tv-card"><div class="tv-card-title">📋 Your Information</div><div id="tv-info-rows"></div></div>
+      <div class="tv-card"><div class="tv-card-title">📄 Your Documents</div><div id="tv-docs"></div></div>
+      <div class="tv-card"><div class="tv-card-title">📅 Payment History</div><div id="tv-hist"></div></div>
+    </div>
+
+    <button class="btn-tvlo" onclick="logout()">← Back to Home</button>
+  </div>
+</div>
+
+<!-- ════ TENANT EDIT PROFILE (v10) ════ -->
+<div id="screen-tenant-edit" class="screen">
+  <div class="app-header">
+    <div class="h-brand"><div class="h-ico">🏠</div><div class="h-name">KiraaBook</div></div>
+    <div class="h-right"><div class="h-pill hp-t">✏️ Edit Profile</div><button class="btn-logout" onclick="returnToTenantView()">← Back</button></div>
+  </div>
+  <div class="tv-content">
+    <div class="te-section">
+      <div class="te-section-title">📷 Profile Photo</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="photo-box" id="tep-profphoto-box" onclick="document.getElementById('tep-prof-file').click()" style="width:90px;height:90px;border-radius:50%">
+          <div id="tep-prof-prev" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative;border-radius:50%">
+            <span style="font-size:30px">👤</span>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600;margin-bottom:4px">Click to upload photo</div>
+          <div style="font-size:10px;color:var(--text3);font-weight:500">JPG/PNG, max ~2MB. Will be compressed.</div>
+        </div>
+      </div>
+      <input type="file" id="tep-prof-file" accept="image/*" style="display:none" onchange="handlePhotoFile('tep-prof-file','tep-prof-data','tep-prof-prev',true)"/>
+      <input type="hidden" id="tep-prof-data"/>
+    </div>
+
+    <div class="te-section">
+      <div class="te-section-title">👤 Basic Information</div>
+      <label>Full Name</label><input id="tep-name" placeholder="Your full name"/>
+      <div class="frow">
+        <div><label>Phone</label><input id="tep-phone" type="tel" placeholder="Mobile number"/></div>
+        <div><label>Alt Phone</label><input id="tep-alt" type="tel" placeholder="Alternate"/></div>
+      </div>
+      <label>Email Address</label><input id="tep-email" type="email" placeholder="you@example.com"/>
+      <label>Permanent Address</label><textarea id="tep-address" rows="2" placeholder="Your home address" style="resize:none"></textarea>
+    </div>
+
+    <div class="te-section">
+      <div class="te-section-title">🪪 ID Proof</div>
+      <div class="frow">
+        <div>
+          <label>ID Type</label>
+          <select id="tep-idtype" onchange="document.getElementById('tep-id-area').style.display=this.value?'block':'none'">
+            <option value="">Select</option>
+            <option>Passport</option><option>National ID</option><option>Driver License</option>
+            <option>Aadhaar Card</option><option>PAN Card</option><option>Voter ID</option><option>Other Government ID</option>
+          </select>
+        </div>
+        <div><label>ID Number</label><input id="tep-idnum" placeholder="e.g. P12345678"/></div>
+      </div>
+      <div id="tep-id-area" style="display:none;margin-top:10px">
+        <label>Upload ID Photo</label>
+        <div class="photo-box" id="tep-id-box" onclick="document.getElementById('tep-id-file').click()" style="height:120px">
+          <div id="tep-id-prev" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <span style="font-size:22px">📄</span>
+            <span style="font-size:11px;color:var(--text3);font-weight:600">Tap to upload</span>
+          </div>
+        </div>
+        <input type="file" id="tep-id-file" accept="image/*" style="display:none" onchange="handlePhotoFile('tep-id-file','tep-id-data','tep-id-prev',false)"/>
+        <input type="hidden" id="tep-id-data"/>
+      </div>
+    </div>
+
+    <div class="te-section">
+      <div class="te-section-title">🛡️ Verification Document</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500">Local police verification form, residency check, or similar (if required in your region)</div>
+      <div class="photo-box" id="tep-pv-box" onclick="document.getElementById('tep-pv-file').click()" style="height:120px">
+        <div id="tep-pv-prev" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <span style="font-size:22px">📋</span>
+          <span style="font-size:11px;color:var(--text3);font-weight:600">Upload verification form</span>
+        </div>
+      </div>
+      <input type="file" id="tep-pv-file" accept="image/*" style="display:none" onchange="handlePhotoFile('tep-pv-file','tep-pv-data','tep-pv-prev',false)"/>
+      <input type="hidden" id="tep-pv-data"/>
+    </div>
+
+    <div class="te-section">
+      <div class="te-section-title">🏠 Tenancy Details</div>
+      <div class="frow">
+        <div><label>Room/Unit</label><input id="tep-room" placeholder="Room number" readonly style="opacity:.6"/><div style="font-size:9px;color:var(--text3);margin-top:2px">(set by owner)</div></div>
+        <div><label>Monthly Rent</label><input id="tep-rent" type="number" readonly style="opacity:.6"/><div style="font-size:9px;color:var(--text3);margin-top:2px">(set by owner)</div></div>
+      </div>
+      <label>Move-in Date</label>
+      <input type="date" id="tep-date"/>
+      <label>Additional Notes</label>
+      <textarea id="tep-notes" rows="2" placeholder="Anything else..." style="resize:none"></textarea>
+    </div>
+
+    <div class="te-section">
+      <div class="te-section-title">🔑 Change Password</div>
+      <label>New Password (leave blank to keep current)</label>
+      <input type="password" id="tep-pass" placeholder="Min 6 chars"/>
+      <label>Confirm New Password</label>
+      <input type="password" id="tep-pass2"/>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="btn btn-success" style="flex:1;font-size:13px" onclick="saveTenantEditProfile()">💾 Save All Changes</button>
+      <button class="btn btn-ghost" onclick="returnToTenantView()">Cancel</button>
+    </div>
+    <div id="tep-err" style="text-align:center;color:var(--red);font-size:11px;font-weight:600;margin-bottom:10px"></div>
+  </div>
+</div>
+
+<!-- ════ ADMIN PANEL ════ -->
+<div id="screen-admin" class="screen">
+  <div class="app-header">
+    <div class="h-brand"><div class="h-ico">🏠</div><div class="h-name">KiraaBook</div></div>
+    <div class="h-right"><div class="h-pill hp-a">⚙️ Admin</div><button class="btn-logout" onclick="logout()">Logout</button></div>
+  </div>
+  <div class="admin-wrap">
+    <div class="lifetime-badge">
+      <div class="lb-icon">♾️</div>
+      <div><div class="lb-text">Lifetime Admin Key Active</div><div class="lb-sub">Geetansh2013 · Never expires · Full access</div></div>
+    </div>
+    <div class="admin-stat-grid">
+      <div class="stat-card" style="cursor:pointer" onclick="jumpToAdminTab('owners')" title="View all owners"><div class="stat-lbl">Total Owners</div><div class="stat-val sv-b" id="a-owners">–</div></div>
+      <div class="stat-card" style="cursor:pointer" onclick="jumpToAdminTab('tenants')" title="View all tenants"><div class="stat-lbl">Total Tenants</div><div class="stat-val sv-g" id="a-tenants">–</div></div>
+      <div class="stat-card" style="cursor:pointer" onclick="jumpToAdminTab('owners','trial')" title="View trial owners"><div class="stat-lbl">On Free Trial</div><div class="stat-val sv-c" id="a-trial">–</div></div>
+      <div class="stat-card" style="cursor:pointer" onclick="jumpToAdminTab('bills')" title="View all bills"><div class="stat-lbl">Total Bills</div><div class="stat-val sv-r" id="a-bills">–</div></div>
+    </div>
+    <div class="tab-bar">
+      <button class="t-tab a-tab active" onclick="switchAdminTab('owners',this)">👑 Owners</button>
+      <button class="t-tab a-tab" onclick="switchAdminTab('tenants',this)">👥 Tenants</button>
+      <button class="t-tab a-tab" onclick="switchAdminTab('bills',this)">📄 Bills</button>
+      <button class="t-tab a-tab" onclick="switchAdminTab('support',this)">📞 Support Tickets <span id="support-count-badge" style="background:var(--red);color:#fff;padding:1px 6px;border-radius:99px;font-size:9px;font-weight:700;margin-left:4px;display:none">0</span></button>
+      <button class="t-tab a-tab" onclick="switchAdminTab('logs',this)">📊 Activity Logs</button>
+      <button class="t-tab a-tab" onclick="switchAdminTab('database',this)">🗄️ Database</button>
+      <button class="t-tab a-tab" onclick="switchAdminTab('backup',this)">💾 Backup</button>
+    </div>
+
+    <!-- OWNERS TAB -->
+    <div id="atab-owners">
+      <div class="db-section">
+        <div class="db-title"><span>👑 All Owners</span><button class="db-refresh-btn" onclick="loadAdminOwners()">🔄 Refresh</button></div>
+        <div class="search-wrap"><span class="search-ico">🔍</span><input id="admin-owner-search" placeholder="Search by Owner ID, name, username, phone, or email..." oninput="loadAdminOwners()"/></div>
+        <div style="overflow-x:auto"><table class="db-table"><thead><tr><th>Owner ID</th><th>Name</th><th>Username</th><th>Phone</th><th>Email</th><th>Plan</th><th>Expires</th><th>Tenants</th><th>Trial Used</th><th>Status</th><th>Action</th></tr></thead><tbody id="admin-owners-tbody"></tbody></table></div>
+      </div>
+      <div id="owner-edit-form" class="inline-edit-form" style="display:none">
+        <div class="inline-edit-title">✏️ Edit Owner</div>
+        <input type="hidden" id="edit-owner-id"/>
+        <div class="frow">
+          <div><label>Name</label><input id="edit-owner-name" placeholder="Full name"/></div>
+          <div><label>Username</label><input id="edit-owner-username" placeholder="Username"/></div>
+        </div>
+        <div class="frow">
+          <div><label>Phone</label><input id="edit-owner-phone" type="tel" placeholder="10-digit"/></div>
+          <div><label>Email</label><input id="edit-owner-email" type="email" placeholder="email"/></div>
+        </div>
+        <div class="frow">
+          <div><label>New Password (leave blank to keep)</label><input id="edit-owner-pass" type="password" placeholder="New password"/></div>
+          <div><label>Plan</label><select id="edit-owner-plan"><option value="trial">Trial</option><option value="monthly">Monthly</option><option value="annual">Annual</option><option value="lifetime">Lifetime</option></select></div>
+        </div>
+        <div class="frow">
+          <div><label>Subscription Expiry</label><input id="edit-owner-expiry" type="date"/></div>
+          <div><label>Reset Trial Used (allow trial again)</label><select id="edit-owner-trialused"><option value="true">Yes (used)</option><option value="false">No (reset)</option></select></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn btn-success" style="flex:2" onclick="saveOwnerEdit()">💾 Save Changes</button>
+          <button class="btn btn-ghost" onclick="cancelOwnerEdit()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TENANTS TAB -->
+    <div id="atab-tenants" style="display:none">
+      <div class="db-section">
+        <div class="db-title">All Tenants</div>
+        <div class="owner-filter-bar">
+          <span class="owner-filter-label">Filter by Owner:</span>
+          <select class="owner-filter-sel" id="admin-tenant-owner-filter" onchange="loadAdminTenants()">
+            <option value="">All Owners</option>
+          </select>
+        </div>
+        <div class="search-wrap"><span class="search-ico">🔍</span><input id="admin-tenant-search" placeholder="Search by Tenant ID, name, room, phone, or email..." oninput="loadAdminTenants()"/></div>
+        <div style="overflow-x:auto"><table class="db-table"><thead><tr><th>Tenant ID</th><th>Name</th><th>Room</th><th>Rent</th><th>Phone</th><th>Email</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead><tbody id="admin-tenants-tbody"></tbody></table></div>
+      </div>
+      <div id="tenant-edit-form" class="inline-edit-form" style="display:none">
+        <div class="inline-edit-title">✏️ Edit Tenant</div>
+        <input type="hidden" id="edit-tenant-id"/>
+        <div class="frow">
+          <div><label>Name</label><input id="edit-tenant-name"/></div>
+          <div><label>Room</label><input id="edit-tenant-room"/></div>
+        </div>
+        <div class="frow">
+          <div><label>Rent (₹)</label><input id="edit-tenant-rent" type="number"/></div>
+          <div><label>Phone</label><input id="edit-tenant-phone" type="tel"/></div>
+        </div>
+        <label>Email</label>
+        <input id="edit-tenant-email" type="email"/>
+        <div class="frow">
+          <div><label>ID Type</label><select id="edit-tenant-idtype"><option value="">Select</option><option>Passport</option><option>National ID</option><option>Driver License</option><option>Aadhaar Card</option><option>PAN Card</option><option>Voter ID</option><option>Social Security Card</option><option>Other Government ID</option></select></div>
+          <div><label>ID Number</label><input id="edit-tenant-idnum"/></div>
+        </div>
+        <label>Address</label><input id="edit-tenant-address"/>
+        <label>Notes</label><textarea id="edit-tenant-notes" rows="2" style="resize:none"></textarea>
+        <div class="frow" style="margin-top:12px">
+          <div><label>Bill Mode</label><select id="edit-tenant-billmode"><option value="auto">Auto</option><option value="manual">Manual</option></select></div>
+          <div><label>Approved</label><select id="edit-tenant-approved"><option value="true">Yes</option><option value="false">No</option></select></div>
+        </div>
+        <div style="background:var(--red-g);border:1px solid rgba(244,63,94,.2);border-radius:var(--rs);padding:12px;margin-top:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px">🔑 Reset Tenant Password (Admin Only)</div>
+          <div class="frow">
+            <div><label style="margin-top:0">New Password</label><input id="edit-tenant-newpass" type="password" placeholder="Min 6 chars"/></div>
+            <div><label style="margin-top:0">Confirm Password</label><input id="edit-tenant-newpass2" type="password" placeholder="Re-enter"/></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:6px;font-weight:500">Leave blank to keep existing password.</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-success" style="flex:2" onclick="saveTenantEdit()">💾 Save Changes</button>
+          <button class="btn btn-ghost" onclick="cancelTenantEdit()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BILLS TAB -->
+    <div id="atab-bills" style="display:none">
+      <div class="db-section">
+        <div class="db-title">All Bills</div>
+        <div class="owner-filter-bar">
+          <span class="owner-filter-label">Filter by Owner:</span>
+          <select class="owner-filter-sel" id="admin-bill-owner-filter" onchange="loadAdminBills()">
+            <option value="">All Owners</option>
+          </select>
+        </div>
+        <div class="search-wrap"><span class="search-ico">🔍</span><input id="admin-bill-search" placeholder="Search by tenant name, month, or owner ID..." oninput="loadAdminBills()"/></div>
+        <div style="overflow-x:auto"><table class="db-table"><thead><tr><th>Tenant</th><th>Tenant ID</th><th>Owner</th><th>Owner ID</th><th>Month</th><th>Total</th><th>Due</th><th>Status</th><th>Action</th></tr></thead><tbody id="admin-bills-tbody"></tbody></table></div>
+      </div>
+      <div id="bill-edit-form" class="inline-edit-form" style="display:none">
+        <div class="inline-edit-title">✏️ Edit Bill</div>
+        <input type="hidden" id="edit-bill-id"/>
+        <div class="frow">
+          <div><label>Month Label</label><input id="edit-bill-month"/></div>
+          <div><label>Due Date</label><input id="edit-bill-due" type="date"/></div>
+        </div>
+        <div class="frow">
+          <div><label>Total (₹)</label><input id="edit-bill-total" type="number"/></div>
+          <div><label>Status</label><select id="edit-bill-status"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-success" style="flex:2" onclick="saveBillEdit()">💾 Save Changes</button>
+          <button class="btn btn-ghost" onclick="cancelBillEdit()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUPPORT TICKETS TAB (v13) -->
+    <div id="atab-support" style="display:none">
+      <div class="db-section">
+        <div class="db-title"><span>📞 Support Tickets from Owners</span>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="support-filter" onchange="loadSupportTickets()" style="margin:0;padding:5px 10px;font-size:11px;width:auto">
+              <option value="all">All tickets</option>
+              <option value="new" selected>🆕 New / unread</option>
+              <option value="in_progress">⏳ In Progress</option>
+              <option value="resolved">✅ Resolved</option>
+            </select>
+            <button class="db-refresh-btn" onclick="loadSupportTickets()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);font-weight:500;margin-bottom:10px;line-height:1.5">Tickets submitted by owners via the "Contact Us" tab. Click a ticket to view details, reply, and update status.</div>
+        <div id="support-tickets-list"><div class="empty-state"><div class="empty-icon">📞</div><div class="empty-text">Loading...</div></div></div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY LOGS TAB -->
+    <div id="atab-logs" style="display:none">
+      <div class="db-section">
+        <div class="db-title"><span>📊 Activity Logs</span><button class="db-refresh-btn" onclick="loadActivityLogs()">🔄 Refresh</button></div>
+        <div id="activity-logs-list"><div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">Loading logs...</div></div></div>
+      </div>
+    </div>
+
+    <!-- DATABASE VIEWER TAB -->
+    <div id="atab-database" style="display:none">
+      <div class="db-section">
+        <div class="db-title"><span>🗄️ Live Database Viewer</span><button class="db-refresh-btn" onclick="refreshDB()">🔄 Refresh</button></div>
+        <div class="db-coll-grid" id="db-coll-grid"></div>
+        <div style="position:relative;margin-bottom:10px"><input id="db-search" placeholder="🔍 Search records..." oninput="filterDBRecords()" style="margin-top:0"/></div>
+        <div id="db-records-wrap"><div class="empty-state"><div class="empty-icon">🗄️</div><div class="empty-text">Select a collection above</div></div></div>
+      </div>
+    </div>
+
+    <!-- BACKUP TAB -->
+    <div id="atab-backup" style="display:none">
+      <div class="panel">
+        <div class="panel-title">💾 Data Backup &amp; Export</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:16px;text-align:center">
+            <div style="font-size:28px;margin-bottom:8px">📄</div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">Export as JSON</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500">Full database backup</div>
+            <button class="btn btn-success" style="width:100%" onclick="exportJSON()">⬇️ Download JSON</button>
+          </div>
+          <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:16px;text-align:center">
+            <div style="font-size:28px;margin-bottom:8px">📊</div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">Export as CSV</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500">Tenants &amp; bills data</div>
+            <button class="btn btn-gold" style="width:100%" onclick="exportCSV()">⬇️ Download CSV</button>
+          </div>
+        </div>
+        <div style="background:var(--blue-g);border:1px solid rgba(79,156,249,.2);border-radius:var(--rs);padding:12px;font-size:12px;color:var(--text3);font-weight:500;line-height:1.6">
+          💡 <strong style="color:var(--blue)">Tip:</strong> Download backup regularly. JSON contains all data including photos. CSV contains text data only.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODALS ════ -->
+
+<!-- PAYMENT MODAL -->
+<div class="modal-overlay" id="payment-modal">
+  <div class="payment-modal-box">
+    <div style="font-size:22px;margin-bottom:8px">💳</div>
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px;letter-spacing:-.5px">Make Payment</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px;font-weight:500">Choose your preferred payment method</div>
+    <div style="font-size:28px;font-weight:800;color:var(--gold);text-align:center;margin-bottom:16px;letter-spacing:-.5px" id="pay-amount">–</div>
+    <div class="upi-options">
+      <div class="upi-btn" onclick="payViaUPI('gpay')"><div class="upi-btn-icon">📱</div><div><div class="upi-btn-text">Google Pay</div><div class="upi-btn-sub">Scan QR or pay via UPI ID</div></div></div>
+      <div class="upi-btn" onclick="payViaUPI('phonepay')"><div class="upi-btn-icon">💜</div><div><div class="upi-btn-text">PhonePe</div><div class="upi-btn-sub">Scan QR or pay via UPI ID</div></div></div>
+      <div class="upi-btn" onclick="payViaUPI('paytm')"><div class="upi-btn-icon">💙</div><div><div class="upi-btn-text">Paytm</div><div class="upi-btn-sub">Scan QR or pay via UPI ID</div></div></div>
+      <div class="upi-btn" onclick="payViaUPI('other')"><div class="upi-btn-icon">🏦</div><div><div class="upi-btn-text">Any UPI App</div><div class="upi-btn-sub">BHIM, NEFT, IMPS etc.</div></div></div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:12px;font-weight:500">After payment, click <strong>"I Have Paid"</strong> to notify owner.</div>
+    <button class="btn btn-ghost" style="width:100%" onclick="closeModal('payment-modal')">Cancel</button>
+  </div>
+</div>
+
+<!-- PAYMENT CLAIM MODAL -->
+<div class="modal-overlay" id="claim-modal">
+  <div class="modal-box modal-large">
+    <div style="font-size:28px;text-align:center;margin-bottom:8px">✅</div>
+    <div class="modal-title" style="text-align:center">Confirm Your Payment</div>
+    <div class="modal-sub" style="text-align:center">Owner will review and approve your payment. Once approved, your rent will be marked paid.</div>
+    <label>Amount Paid (₹) *</label>
+    <input id="claim-amount" type="number" placeholder="e.g. 5000"/>
+    <label>Payment Method *</label>
+    <select id="claim-method">
+      <option value="upi">UPI (GPay/PhonePe/Paytm)</option>
+      <option value="cash">Cash</option>
+      <option value="bank">Bank Transfer</option>
+      <option value="cheque">Cheque</option>
+      <option value="other">Other</option>
+    </select>
+    <label>Transaction Reference / UPI ID (Optional)</label>
+    <input id="claim-ref" placeholder="UPI transaction ID or reference"/>
+    <label>Payment Date *</label>
+    <input id="claim-date" type="date"/>
+    <label>Notes (Optional)</label>
+    <textarea id="claim-notes" rows="2" placeholder="Any additional info..." style="resize:none"></textarea>
+    <div class="err-msg" id="claim-err"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('claim-modal')">Cancel</button>
+      <button class="btn btn-success" style="flex:2" onclick="submitPaymentClaim()">📨 Submit for Owner Approval</button>
+    </div>
+  </div>
+</div>
+
+<!-- KEY ACTIVATION MODAL -->
+<div class="modal-overlay" id="key-modal">
+  <div class="modal-box">
+    <div class="modal-icon">🔑</div>
+    <div class="modal-title">Activate Paid Plan</div>
+    <div class="modal-sub">Have a paid-plan activation key from admin? Enter it here. (Free signup doesn't need a key — just sign up.)</div>
+    <input class="field-inp" id="key-inp" placeholder="KB-XXXX-XXXX-XXXX" style="text-align:center;font-weight:700;letter-spacing:2px;font-family:'JetBrains Mono',monospace;margin-top:10px"/>
+    <div class="err-msg" id="key-err"></div>
+    <div class="modal-acts">
+      <button class="btn btn-ghost" onclick="closeModal('key-modal')">Cancel</button>
+      <button class="btn btn-success" style="flex:2" onclick="activateKey()">✅ Activate</button>
+    </div>
+  </div>
+</div>
+
+<!-- OWNER SETUP MODAL (after key activation only) -->
+<div class="modal-overlay" id="setup-modal">
+  <div class="modal-box" style="max-width:460px;text-align:left">
+    <div style="font-size:28px;text-align:center;margin-bottom:10px">🎉</div>
+    <div class="modal-title" style="text-align:center">Set Up Your Account</div>
+    <div class="modal-sub" style="text-align:center" id="setup-modal-sub">Key verified! Now create your login credentials.</div>
+    <span class="field-label">Full Name *</span>
+    <input class="field-inp" id="setup-name" placeholder="e.g. Rajesh Sharma"/>
+    <span class="field-label">Phone Number *</span>
+    <input class="field-inp" id="setup-phone" type="tel" placeholder="10-digit phone"/>
+    <span class="field-label">Email Address *</span>
+    <input class="field-inp" id="setup-email" type="email" placeholder="you@example.com"/>
+    <span class="field-label">Username (for login) *</span>
+    <input class="field-inp" id="setup-username" placeholder="e.g. rajesh123 (no spaces)"/>
+    <span class="field-label">Create Password *</span>
+    <input class="field-inp" id="setup-pass" type="password" placeholder="Minimum 6 characters"/>
+    <span class="field-label">Confirm Password *</span>
+    <input class="field-inp" id="setup-pass2" type="password" placeholder="Re-enter password"/>
+    <div class="err-msg" id="setup-err"></div>
+    <button class="btn btn-success" style="width:100%;margin-top:14px;padding:12px;font-size:13px" onclick="saveOwnerSetup()">✅ Save &amp; Enter Dashboard</button>
+  </div>
+</div>
+
+<!-- OWNER POLICY MODAL -->
+<div class="modal-overlay" id="owner-policy-modal">
+  <div class="policy-modal-box">
+    <div style="font-size:24px;text-align:center;margin-bottom:8px">📜</div>
+    <div style="font-size:18px;font-weight:800;text-align:center;margin-bottom:4px">Terms &amp; Conditions</div>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:10px;font-weight:500">Owner Agreement — Please read carefully</div>
+    <div class="policy-scroll">
+      <h4>1. Platform Usage</h4>
+      <ul>
+        <li>KiraaBook is a global rental management tool for property owners worldwide.</li>
+        <li>You agree to use this platform only for legitimate rental management.</li>
+        <li>Misuse for fraud, harassment, or illegal activity is strictly prohibited.</li>
+      </ul>
+      <h4>2. Free Trial &amp; Subscription</h4>
+      <ul>
+        <li>New owners receive a 30-day free trial limited to 3 tenants.</li>
+        <li>Each phone number / email is eligible for only ONE free trial — duplicate signups are blocked.</li>
+        <li>After the trial, you must purchase a Monthly or Annual plan to continue adding tenants and creating bills.</li>
+        <li>Refunds are not provided after activation unless mandated by applicable consumer law.</li>
+      </ul>
+      <h4>3. Data Accuracy &amp; Responsibility</h4>
+      <ul>
+        <li>You are responsible for the accuracy of all tenant data you enter.</li>
+        <li>You must obtain tenant consent before uploading their personal documents and only collect data permitted by your jurisdiction's data-protection laws (e.g. GDPR, CCPA, PDPA, DPDP, etc.).</li>
+        <li>KiraaBook stores data securely via Firebase but is not liable for user-entered data.</li>
+      </ul>
+      <h4>4. Tenant Rights</h4>
+      <ul>
+        <li>Tenants have the right to view their own data, bills, and payment history.</li>
+        <li>You must not use KiraaBook to harass, threaten, or unfairly discriminate against tenants.</li>
+        <li>All rent amounts and billing must comply with the tenancy and consumer laws of the country, state, or municipality where the property is located.</li>
+      </ul>
+      <h4>5. Tenant Verification &amp; Local Compliance</h4>
+      <ul>
+        <li>Many jurisdictions require background checks, residency registration, or police verification for tenants (e.g. India — Section 188 CrPC; Germany — Anmeldung; UAE — Ejari; etc.).</li>
+        <li>You are solely responsible for verifying and complying with the applicable laws in your jurisdiction.</li>
+        <li>KiraaBook provides storage for verification documents but does not guarantee or audit compliance.</li>
+      </ul>
+      <h4>6. Payment Confirmations</h4>
+      <ul>
+        <li>Tenants can claim payment via the in-app "I Have Paid" button.</li>
+        <li>You must verify each claim independently before marking it approved.</li>
+        <li>KiraaBook does not process payments — money moves directly between you and your tenants via your chosen method (UPI, bank transfer, cash, card, etc.).</li>
+      </ul>
+      <h4>7. Privacy &amp; Security</h4>
+      <ul>
+        <li>Tenant personal data must not be shared with third parties without consent.</li>
+        <li>You are responsible for maintaining the security of your login credentials.</li>
+        <li>KiraaBook may suspend accounts that violate these terms.</li>
+      </ul>
+      <h4>8. Notifications &amp; Communication</h4>
+      <ul>
+        <li>WhatsApp/SMS rent reminders are sent from your own device. Carrier and messaging app fees may apply.</li>
+        <li>Browser/push notifications require your explicit permission and may be disabled at any time from device settings.</li>
+      </ul>
+      <h4>9. Disclaimer &amp; Jurisdiction</h4>
+      <ul>
+        <li>KiraaBook is a management tool — we are not responsible for disputes between owners and tenants.</li>
+        <li>Always maintain physical records as legal backup.</li>
+        <li>Any disputes arising from use of this platform will be governed by the laws of your country of residence.</li>
+      </ul>
+    </div>
+    <label class="policy-check-row" for="owner-agree-check">
+      <input type="checkbox" id="owner-agree-check" onchange="toggleOwnerAccept()"/>
+      <span class="policy-check-label">I have read and agree to the KiraaBook Terms &amp; Conditions, Privacy Policy, and Rental Management Guidelines. I confirm I am the legal property owner or authorized agent.</span>
+    </label>
+    <button class="btn-accept" id="owner-accept-btn" disabled onclick="ownerPolicyAccepted()">✅ I Accept — Continue</button>
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal('owner-policy-modal')">✕ Cancel</button>
+  </div>
+</div>
+
+<!-- TENANT POLICY MODAL -->
+<div class="modal-overlay" id="tenant-policy-modal">
+  <div class="policy-modal-box">
+    <div style="font-size:24px;text-align:center;margin-bottom:8px">📜</div>
+    <div style="font-size:18px;font-weight:800;text-align:center;margin-bottom:4px">Tenant Agreement</div>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:10px;font-weight:500">Please read before registering</div>
+    <div class="policy-scroll">
+      <h4>1. Data Consent</h4>
+      <ul>
+        <li>By registering, you consent to your personal information being stored securely on KiraaBook.</li>
+        <li>Your data (name, phone, email, ID, photos) will be visible to your property owner/landlord.</li>
+        <li>Your data will not be sold or shared with third parties outside legitimate property management.</li>
+      </ul>
+      <h4>2. Local Verification &amp; Compliance</h4>
+      <ul>
+        <li>Some jurisdictions require background checks, residency registration, or police verification for tenants (e.g. India — police verification under CrPC; Germany — Anmeldung; UAE — Ejari; etc.). Your owner will tell you what applies.</li>
+        <li>KiraaBook facilitates document upload for your landlord's records.</li>
+        <li>Failure to complete required verification may result in tenancy or legal consequences depending on your jurisdiction.</li>
+      </ul>
+      <h4>3. Accurate Information</h4>
+      <ul>
+        <li>You must provide accurate and genuine personal information.</li>
+        <li>Submitting false or forged documents is a criminal offense in most jurisdictions.</li>
+        <li>Your registration is subject to owner approval after verification.</li>
+      </ul>
+      <h4>4. Payment Responsibility</h4>
+      <ul>
+        <li>You are responsible for timely payment of rent as agreed with your owner.</li>
+        <li>The "I Have Paid" feature notifies your owner — rent is only marked paid after owner approval.</li>
+        <li>KiraaBook does not process or hold payments — money moves directly between you and your owner.</li>
+      </ul>
+      <h4>5. Rent Reminders</h4>
+      <ul>
+        <li>KiraaBook may show you rent reminders in the portal and via WhatsApp links one day before due date and on the due date.</li>
+        <li>These reminders are informational and do not override your rental agreement.</li>
+      </ul>
+      <h4>6. Platform Usage</h4>
+      <ul>
+        <li>Your KiraaBook account is personal — do not share your login credentials.</li>
+        <li>You may request data deletion by contacting your property owner.</li>
+      </ul>
+      <h4>7. Vacating Notice</h4>
+      <ul>
+        <li>You agree to provide reasonable advance notice (as per your rental agreement) before vacating.</li>
+        <li>The vacating notice feature serves as digital notification only.</li>
+      </ul>
+    </div>
+    <label class="policy-check-row" for="tenant-agree-check">
+      <input type="checkbox" id="tenant-agree-check" onchange="toggleTenantAccept()"/>
+      <span class="policy-check-label">I have read and agree to the KiraaBook Tenant Terms &amp; Conditions. I confirm the information I provide is accurate and genuine, and I consent to my data being stored for rental management purposes.</span>
+    </label>
+    <button class="btn-accept" id="tenant-accept-btn" disabled onclick="tenantPolicyAccepted()">✅ I Accept — Submit My Details</button>
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal('tenant-policy-modal')">✕ Cancel</button>
+  </div>
+</div>
+
+<!-- TENANT DETAIL MODAL -->
+<div class="modal-overlay" id="tenant-detail-modal">
+  <div class="modal-box modal-large" style="text-align:left">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:800">👤 Tenant Details</div>
+      <button class="btn btn-ghost" onclick="closeModal('tenant-detail-modal')" style="padding:5px 10px">✕ Close</button>
+    </div>
+    <div id="tenant-detail-content"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap" id="tenant-detail-actions"></div>
+  </div>
+</div>
+
+<!-- OWNER FULL DETAILS MODAL (admin) -->
+<div class="modal-overlay" id="owner-detail-modal">
+  <div class="modal-box modal-large" style="text-align:left">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:800">👑 Complete Owner Details</div>
+      <button class="btn btn-ghost" onclick="closeModal('owner-detail-modal')" style="padding:5px 10px">✕ Close</button>
+    </div>
+    <div id="owner-detail-content"></div>
+  </div>
+</div>
+
+<!-- v11: COLLECTED THIS MONTH MODAL -->
+<div class="modal-overlay" id="collected-modal">
+  <div class="modal-box modal-large" style="text-align:left">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800;color:var(--green)">💰 Collected This Month</div>
+      <button class="btn btn-ghost" onclick="closeModal('collected-modal')" style="padding:5px 10px">✕ Close</button>
+    </div>
+    <div id="collected-modal-content"></div>
+  </div>
+</div>
+
+<!-- v11: PENDING BILLS MODAL -->
+<div class="modal-overlay" id="pending-modal">
+  <div class="modal-box modal-large" style="text-align:left">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800;color:var(--orange)">⏰ Pending Bills</div>
+      <button class="btn btn-ghost" onclick="closeModal('pending-modal')" style="padding:5px 10px">✕ Close</button>
+    </div>
+    <div id="pending-modal-content"></div>
+  </div>
+</div>
+
+<!-- v11: ADMIN PASSKEY RESET MODAL -->
+<div class="modal-overlay" id="admin-reset-modal">
+  <div class="modal-box" style="text-align:left;max-width:420px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800">🔐 Reset Admin Passkey</div>
+      <button class="btn btn-ghost" onclick="closeModal('admin-reset-modal')" style="padding:5px 10px">✕</button>
+    </div>
+    <div id="admin-reset-step1">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6;font-weight:500">Enter the recovery phone number associated with this admin account. An OTP will be sent via SMS.</div>
+      <label>Recovery Phone (with country code)</label>
+      <input id="admin-reset-phone" type="tel" placeholder="e.g. +918860654694"/>
+      <div class="err-msg" id="admin-reset-err"></div>
+      <button class="btn btn-gold" style="width:100%;margin-top:10px" onclick="sendAdminResetOtp()">📨 Send OTP</button>
+      <div id="recaptcha-container-admin"></div>
+      <div style="font-size:10px;color:var(--text3);text-align:center;margin-top:10px;line-height:1.5">First time? Set the recovery phone in the admin panel → Settings.<br>If no recovery phone is set, contact the system owner directly.</div>
+    </div>
+    <div id="admin-reset-step2" style="display:none">
+      <label>Enter OTP from SMS</label>
+      <input id="admin-reset-otp" type="text" maxlength="6" class="otp-input" placeholder="6-digit"/>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="verifyAdminResetOtp()">✅ Verify</button>
+    </div>
+    <div id="admin-reset-step3" style="display:none">
+      <label>New Admin Passkey</label>
+      <input id="admin-reset-newpass" type="password" placeholder="Min 6 chars"/>
+      <label>Confirm New Passkey</label>
+      <input id="admin-reset-newpass2" type="password"/>
+      <button class="btn btn-success" style="width:100%;margin-top:8px" onclick="doAdminPasskeyReset()">🔒 Set New Passkey</button>
+    </div>
+  </div>
+</div>
+
+<!-- v13: DIGITAL RENT AGREEMENT BUILDER MODAL -->
+<div class="modal-overlay" id="rent-agreement-modal">
+  <div class="modal-box modal-large" style="text-align:left;max-width:720px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800">📄 Rent Agreement Builder</div>
+      <button class="btn btn-ghost" onclick="closeModal('rent-agreement-modal')" style="padding:5px 10px">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);font-weight:500;margin-bottom:14px;line-height:1.5">
+      💡 Fields below are pre-filled from the tenant's profile. Review and edit any value, then click <strong>Generate PDF</strong>.
+      The PDF is saved to the tenant's record and they can download it from their dashboard.
+    </div>
+    <input type="hidden" id="ra-tenant-id"/>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:12px;color:var(--gold);margin-bottom:8px">📋 Template</div>
+      <select id="ra-template">
+        <option value="residential">🏠 Residential Lease (most common)</option>
+        <option value="commercial">🏬 Commercial Lease</option>
+        <option value="pg">🏨 PG / Hostel Stay</option>
+        <option value="custom">📝 Custom (start blank)</option>
+      </select>
+    </div>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:12px;color:var(--gold);margin-bottom:8px">🏠 Parties &amp; Property</div>
+      <div class="frow">
+        <div><label>Landlord (Owner) Name</label><input id="ra-owner-name"/></div>
+        <div><label>Tenant Name</label><input id="ra-tenant-name"/></div>
+      </div>
+      <div class="frow">
+        <div><label>Landlord Phone</label><input id="ra-owner-phone"/></div>
+        <div><label>Tenant Phone</label><input id="ra-tenant-phone"/></div>
+      </div>
+      <label>Property Address</label>
+      <textarea id="ra-property-address" rows="2" style="resize:none"></textarea>
+      <div class="frow">
+        <div><label>Room / Unit No.</label><input id="ra-room"/></div>
+        <div><label>Property Type</label>
+          <select id="ra-prop-type">
+            <option value="Apartment">Apartment</option>
+            <option value="House">Independent House</option>
+            <option value="Villa">Villa</option>
+            <option value="PG Room">PG Room</option>
+            <option value="Commercial Space">Commercial Space</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:12px;color:var(--gold);margin-bottom:8px">💰 Financial Terms</div>
+      <div class="frow">
+        <div><label>Monthly Rent</label><input id="ra-rent" type="number"/></div>
+        <div><label>Security Deposit (refundable)</label><input id="ra-security" type="number"/></div>
+      </div>
+      <div class="frow">
+        <div><label>Advance Rent (months)</label><input id="ra-advance-months" type="number" placeholder="0"/></div>
+        <div><label>Annual Rent Escalation (%)</label><input id="ra-escalation" type="number" placeholder="e.g. 5"/></div>
+      </div>
+      <div class="frow">
+        <div><label>Late Fee (per day)</label><input id="ra-latefee" type="number" placeholder="e.g. 50"/></div>
+        <div><label>Rent Due on (day of month)</label><input id="ra-rentday" type="number" min="1" max="31" placeholder="e.g. 5"/></div>
+      </div>
+    </div>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:12px;color:var(--gold);margin-bottom:8px">📅 Lease Period</div>
+      <div class="frow">
+        <div><label>Start Date</label><input id="ra-start-date" type="date"/></div>
+        <div><label>End Date</label><input id="ra-end-date" type="date"/></div>
+      </div>
+      <label>Notice Period for Termination (days)</label>
+      <input id="ra-notice-days" type="number" placeholder="e.g. 30"/>
+    </div>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:12px;color:var(--gold);margin-bottom:8px">📝 Additional Clauses</div>
+      <label>Maintenance Responsibility</label>
+      <textarea id="ra-maintenance" rows="2" style="resize:vertical">Tenant is responsible for day-to-day upkeep. Major structural repairs are the landlord's responsibility.</textarea>
+      <label>Utilities (Electricity / Water / Gas)</label>
+      <textarea id="ra-utilities" rows="2" style="resize:vertical">Electricity and water bills are payable by the tenant based on actual usage. Gas connection charges are tenant's responsibility.</textarea>
+      <label>House Rules / Restrictions</label>
+      <textarea id="ra-rules" rows="3" style="resize:vertical">No subletting without written permission. No structural alterations without landlord consent. No illegal activities on the premises.</textarea>
+      <label>Additional Notes / Custom Clauses</label>
+      <textarea id="ra-custom" rows="3" style="resize:vertical" placeholder="Any other clauses you want to add..."></textarea>
+    </div>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:12px;color:var(--gold);margin-bottom:8px">✍️ Signatures</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:8px">Type names below — these will appear as signature lines in the PDF. Both parties should also sign the printed PDF physically.</div>
+      <div class="frow">
+        <div><label>Landlord Signature (typed)</label><input id="ra-sig-landlord"/></div>
+        <div><label>Tenant Signature (typed)</label><input id="ra-sig-tenant"/></div>
+      </div>
+      <div class="frow">
+        <div><label>Place of Signing</label><input id="ra-place" placeholder="e.g. Mumbai"/></div>
+        <div><label>Date of Signing</label><input id="ra-sign-date" type="date"/></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-success" style="flex:1;min-width:140px" onclick="generateRentAgreementPdf()">📄 Generate PDF</button>
+      <button class="btn btn-ghost" onclick="closeModal('rent-agreement-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE VIEWER -->
+<div id="img-modal"><button id="img-close" onclick="closeImgModal()">✕</button><img id="img-src" src="" alt=""/></div>
+
+<!-- v13: FLOATING HELP BUBBLE -->
+<button id="help-fab" onclick="openHelpBot()" title="Help & guide">
+  <span style="font-size:22px">💬</span>
+  <span class="help-fab-pulse"></span>
+</button>
+
+<!-- v13: HELP BOT MODAL -->
+<div class="modal-overlay" id="help-bot-modal">
+  <div class="modal-box" style="text-align:left;max-width:520px;max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#3b82f6,#f5a623);padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:14px;font-weight:800;color:#fff">💬 KiraaBot — Help Assistant</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.85);font-weight:500">Ask me anything about KiraaBook</div>
+      </div>
+      <button onclick="closeModal('help-bot-modal')" style="background:rgba(255,255,255,.2);border:0;color:#fff;padding:6px 10px;border-radius:99px;cursor:pointer;font-weight:700">✕</button>
+    </div>
+    <div id="help-bot-content" style="flex:1;overflow-y:auto;padding:16px;background:var(--bg)"></div>
+    <div style="padding:12px 14px;background:var(--s2);border-top:1px solid var(--border)">
+      <div style="display:flex;gap:8px">
+        <input id="help-bot-input" placeholder="Type your question... (e.g. how to add a tenant)" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')helpBotAsk()"/>
+        <button class="btn btn-primary" style="padding:8px 14px" onclick="helpBotAsk()">Ask</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- v13: WALKTHROUGH OVERLAY -->
+<div id="walkthrough-overlay" style="display:none;position:fixed;inset:0;z-index:9999;pointer-events:none">
+  <div id="wt-spotlight" style="position:absolute;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.7);transition:all .4s;pointer-events:none"></div>
+  <div id="wt-tooltip" style="position:absolute;background:linear-gradient(135deg,#1e293b,#0f172a);border:2px solid #3b82f6;border-radius:14px;padding:16px;max-width:340px;color:#fff;font-family:'Inter',sans-serif;pointer-events:auto;box-shadow:0 12px 40px rgba(59,130,246,.4);z-index:10000">
+    <div style="font-size:13px;font-weight:800;margin-bottom:6px;color:#f5a623" id="wt-title">Welcome!</div>
+    <div style="font-size:12px;line-height:1.5;color:#cbd5e1;margin-bottom:12px" id="wt-text"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;color:#94a3b8;font-weight:600" id="wt-step">Step 1 of 6</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="walkthroughSkip()" style="background:transparent;border:1px solid #475569;color:#94a3b8;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">Skip</button>
+        <button onclick="walkthroughPrev()" id="wt-prev" style="background:#334155;border:0;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">← Back</button>
+        <button onclick="walkthroughNext()" id="wt-next" style="background:#3b82f6;border:0;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- v13: VACANCY BREAKDOWN MODAL -->
+<!-- v13: SUPPORT TICKET DETAIL MODAL (admin only) -->
+<div class="modal-overlay" id="support-detail-modal">
+  <div class="modal-box" style="text-align:left;max-width:600px;max-height:85vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:800;color:var(--gold)">📞 Support Ticket</div>
+      <button class="btn btn-ghost" onclick="closeModal('support-detail-modal')" style="padding:5px 10px">✕</button>
+    </div>
+    <div id="support-detail-content" style="flex:1;overflow-y:auto"></div>
+    <div id="support-detail-footer" style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- v13: FAQ MODAL (opens from header pill) -->
+<div class="modal-overlay" id="faq-modal">
+  <div class="modal-box" style="text-align:left;max-width:680px;max-height:85vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800;color:var(--gold)">❓ Frequently Asked Questions</div>
+      <button class="btn btn-ghost" onclick="closeModal('faq-modal')" style="padding:5px 10px">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px;font-weight:500;line-height:1.5">Tap any question to see the answer. Need more help? Click "Contact Us" in the header.</div>
+    <div class="search-wrap" style="margin-bottom:12px"><span class="search-ico">🔍</span><input id="faq-search" placeholder="Search FAQs..." oninput="renderFaqList()"/></div>
+    <div id="faq-list" style="flex:1;overflow-y:auto;padding-right:4px"></div>
+  </div>
+</div>
+
+<!-- v13: CONTACT US MODAL (opens from header pill) -->
+<!-- v13.x: PLANS / UPGRADE MODAL -->
+<div class="modal-overlay" id="plans-modal">
+  <div class="modal-box" style="text-align:left;max-width:680px;max-height:90vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div>
+        <div style="font-size:17px;font-weight:800;color:var(--gold)">🚀 Upgrade Your Plan</div>
+        <div style="font-size:11px;color:var(--text3);font-weight:500;margin-top:2px">Unlock unlimited tenants and premium features</div>
+      </div>
+      <button class="btn btn-ghost" onclick="closeModal('plans-modal')" style="padding:5px 10px">✕</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding-right:4px">
+      <!-- Current plan status -->
+      <div id="plans-modal-current" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:14px;font-size:12px;color:var(--text2);font-weight:500"></div>
+
+      <!-- Plan tiles -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px">
+        <!-- Free trial -->
+        <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:16px;text-align:center;position:relative">
+          <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.5px;margin-bottom:8px">FREE TRIAL</div>
+          <div style="font-size:30px;font-weight:800;color:var(--text)">₹0</div>
+          <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:10px">30 days</div>
+          <ul style="font-size:11px;color:var(--text2);text-align:left;list-style:none;padding:0;line-height:1.7">
+            <li>✅ Up to 3 tenants</li>
+            <li>✅ All core features</li>
+            <li>✅ No credit card needed</li>
+          </ul>
+          <button class="btn btn-ghost" style="width:100%;margin-top:10px;font-size:11px" disabled>Current</button>
+        </div>
+
+        <!-- Monthly -->
+        <div style="background:linear-gradient(135deg,var(--s2),var(--s3));border:2px solid var(--blue);border-radius:var(--rs);padding:16px;text-align:center;position:relative">
+          <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:9px;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:.5px">POPULAR</div>
+          <div style="font-size:10px;color:var(--blue);font-weight:700;letter-spacing:.5px;margin-bottom:8px">MONTHLY</div>
+          <div style="font-size:30px;font-weight:800;color:var(--text)">₹40<span style="font-size:14px;color:var(--text3);font-weight:600">/mo</span></div>
+          <div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:10px">Cancel anytime</div>
+          <ul style="font-size:11px;color:var(--text2);text-align:left;list-style:none;padding:0;line-height:1.7">
+            <li>✅ <strong>Unlimited tenants</strong></li>
+            <li>✅ All premium features</li>
+            <li>✅ WhatsApp reminders</li>
+            <li>✅ Email support</li>
+          </ul>
+          <button class="btn btn-primary" style="width:100%;margin-top:10px;font-size:12px" onclick="goToPaymentLink('monthly')">💳 Choose Monthly</button>
+        </div>
+
+        <!-- Annual -->
+        <div style="background:linear-gradient(135deg,rgba(245,166,35,.08),var(--s2));border:2px solid var(--gold);border-radius:var(--rs);padding:16px;text-align:center;position:relative">
+          <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold);color:#0f172a;font-size:9px;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:.5px">BEST VALUE</div>
+          <div style="font-size:10px;color:var(--gold);font-weight:700;letter-spacing:.5px;margin-bottom:8px">ANNUAL</div>
+          <div style="font-size:30px;font-weight:800;color:var(--text)">₹499<span style="font-size:14px;color:var(--text3);font-weight:600">/yr</span></div>
+          <div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:10px">💰 Save ₹481/year</div>
+          <ul style="font-size:11px;color:var(--text2);text-align:left;list-style:none;padding:0;line-height:1.7">
+            <li>✅ <strong>Unlimited tenants</strong></li>
+            <li>✅ Everything in Monthly</li>
+            <li>✅ Priority support</li>
+            <li>✅ Save 50%+ on monthly</li>
+          </ul>
+          <button class="btn btn-gold" style="width:100%;margin-top:10px;font-size:12px" onclick="goToPaymentLink('annual')">🌟 Choose Annual</button>
+        </div>
+      </div>
+
+      <!-- Feature comparison -->
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;font-size:11px;color:var(--text3);line-height:1.6">
+        <strong style="color:var(--text2)">💡 Need help choosing?</strong> Most owners with 4+ tenants pick Annual to save ~50%. Try Monthly first if you're not sure. Contact us anytime to switch or cancel.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="contact-modal">
+  <div class="modal-box" style="text-align:left;max-width:600px;max-height:85vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800;color:var(--gold)">📞 Contact Us</div>
+      <button class="btn btn-ghost" onclick="closeModal('contact-modal')" style="padding:5px 10px">✕</button>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <div style="font-size:12px;color:var(--text2);font-weight:500;line-height:1.6;margin-bottom:14px">Stuck on something? Found a bug? Have a feature request? We're here to help.</div>
+
+      <!-- Quick contact methods (populated by JS so SUPPORT_EMAIL/WHATSAPP can change centrally) -->
+      <div id="contact-channels" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px"></div>
+
+      <!-- Submit a support ticket form -->
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:14px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--gold)">📨 Send a Message to Support</div>
+        <label>Subject *</label>
+        <input id="ct-subject" placeholder="e.g. Can't add a tenant"/>
+        <label>Category</label>
+        <select id="ct-category">
+          <option value="bug">🐛 Bug / Something not working</option>
+          <option value="feature">💡 Feature request</option>
+          <option value="billing">💳 Billing or subscription</option>
+          <option value="question">❓ General question</option>
+          <option value="data">📊 Data / account issue</option>
+          <option value="other">📋 Other</option>
+        </select>
+        <label>Your Message *</label>
+        <textarea id="ct-message" rows="4" placeholder="Describe your issue or question in detail..." style="resize:vertical"></textarea>
+
+        <label>Screenshot <span style="font-size:10px;color:var(--text3);font-weight:500">(optional — helps us understand faster)</span></label>
+        <div class="photo-box photo-box-sm" id="ct-photo-prev" onclick="document.getElementById('ct-photo-file').click()" style="height:90px">
+          <span style="font-size:22px">📷</span>
+          <span style="font-size:10px;color:var(--text3);font-weight:600;margin-top:4px">Tap to attach a screenshot</span>
+        </div>
+        <input type="file" id="ct-photo-file" accept="image/*" style="display:none" onchange="handlePhotoFile('ct-photo-file','ct-photo-data','ct-photo-prev',false)"/>
+        <input type="hidden" id="ct-photo-data"/>
+
+        <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="submitSupportTicket()">📤 Send Message</button>
+        <div style="font-size:10px;color:var(--text3);font-weight:500;margin-top:10px;text-align:center;line-height:1.5">We'll reply to the email associated with your account.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- v13.x: PENDING BILLS DETAIL MODAL (tenant side) -->
+<div class="modal-overlay" id="pending-details-modal">
+  <div class="modal-box" style="text-align:left;max-width:520px;max-height:85vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:var(--red)" id="pd-title">🚨 Pending Bills</div>
+        <div style="font-size:11px;color:var(--text3);font-weight:500;margin-top:2px" id="pd-sub"></div>
+      </div>
+      <button class="btn btn-ghost" onclick="closeModal('pending-details-modal')" style="padding:5px 10px">✕</button>
+    </div>
+    <div id="pd-content" style="flex:1;overflow-y:auto;padding-right:4px"></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-success" style="flex:1;min-width:120px" onclick="closeModal('pending-details-modal');openPaymentModal()">💳 Pay Now</button>
+      <button class="btn btn-edit" style="flex:1;min-width:120px" onclick="closeModal('pending-details-modal');openClaimModal()">✅ I've Paid</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="vacancy-modal">
+  <div class="modal-box" style="text-align:left;max-width:480px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800;color:var(--gold)">🏘️ Vacant Rooms by Property</div>
+      <button class="btn btn-ghost" onclick="closeModal('vacancy-modal')" style="padding:5px 10px">✕</button>
+    </div>
+    <div id="vacancy-modal-content"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ════ FIREBASE + APP SCRIPT ════ -->
+<!-- App Entry Point -->
+<script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
