@@ -749,5 +749,3 @@ window.show = function(id){
   if(id==="screen-owner") setTimeout(maybeAutoWalkthrough, 800);
 };
 
-boot();
-
