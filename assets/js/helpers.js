@@ -117,12 +117,6 @@ window.showIdUpload = () => {
   if (t) document.getElementById("id-type-lbl").textContent = t;
 };
 
-// ── Currency setting ───────────────────────────────────────────────────────────
-window.saveCurrency = () => {
-  const v = document.getElementById("set-currency")?.value || "₹";
-  setCurrency(v);
-  toast("✅ Currency set to " + v, "info");
-};
 
 // ── Data export (owner) ────────────────────────────────────────────────────────
 window.exportMyData = () => {
