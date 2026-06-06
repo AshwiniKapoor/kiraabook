@@ -577,9 +577,12 @@ function startV12Subscriptions(){
   if(_v12SubsStarted){ console.log("[v12] Subs already started"); return; }
   _v12SubsStarted = true;
   console.log("[v12] Starting Properties + Tickets subscriptions for owner:", ownerID);
-  subscribeProperties(ownerID);
+  // subscribeProperties lives in properties.js — call via window
+  if(typeof window.subscribeProperties === "function") window.subscribeProperties(ownerID);
   subscribeTickets(ownerID);
 }
+// Expose on window so show() in helpers.js can find it
+window.startV12Subscriptions = startV12Subscriptions;
 // Patch logout to reset the flag and tear down subs
 let _origLogoutV12 = window.logout;
 window.logout = function(){

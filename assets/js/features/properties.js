@@ -10,7 +10,7 @@ import { g, sv, show, toast, fmtDate, fmtMoney, esc, escAttr, closeModal, genUID
 // `properties` lives on window (set in app.js) so all modules share the same array
 let unsubProperties = null;
 
-function subscribeProperties(ownerID){
+window.subscribeProperties = function subscribeProperties(ownerID){
   if(unsubProperties){ try{unsubProperties();}catch(e){} }
   try{
     unsubProperties = onSnapshot(collection(db,"properties"), snap=>{
