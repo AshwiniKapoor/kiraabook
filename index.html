@@ -1524,6 +1524,18 @@
   </div>
 </div>
 
+<!-- TENANTS OVERVIEW MODAL -->
+<div class="modal-overlay" id="tenants-overview-modal">
+  <div class="modal-box modal-large" style="text-align:left">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800;color:var(--blue)">🏠 All Tenants</div>
+      <button class="btn btn-ghost" onclick="closeModal('tenants-overview-modal')" style="padding:5px 10px">✕ Close</button>
+    </div>
+    <div id="tenants-overview-summary" style="margin-bottom:12px"></div>
+    <div id="tenants-overview-content"></div>
+  </div>
+</div>
+
 <!-- v11: ADMIN PASSKEY RESET MODAL -->
 <div class="modal-overlay" id="admin-reset-modal">
   <div class="modal-box" style="text-align:left;max-width:420px">
