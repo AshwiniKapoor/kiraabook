@@ -112,7 +112,8 @@ window.generateRentAgreementPdf = async()=>{
   let templateName = ({residential:"Residential Lease Agreement", commercial:"Commercial Lease Agreement", pg:"Paying Guest (PG) Stay Agreement", custom:"Rent Agreement"})[template] || "Rent Agreement";
 
   // ASCII currency for PDF (jsPDF default font can't render ₹)
-  let curName = ({"₹":"Rs.","$":"USD","€":"EUR","£":"GBP","¥":"JPY","A$":"AUD","C$":"CAD","₽":"RUB","﷼":"SAR","د.إ":"AED"})[CURRENCY] || CURRENCY;
+  const _currency = localStorage.getItem("kb_currency")||"₹";
+  let curName = ({"₹":"Rs.","$":"USD","€":"EUR","£":"GBP","¥":"JPY","A$":"AUD","C$":"CAD","₽":"RUB","﷼":"SAR","د.إ":"AED"})[_currency] || _currency;
   let m = (v)=>`${curName} ${Number(v||0).toLocaleString("en-US",{maximumFractionDigits:2})}`;
   let fmtSignDate = signDate ? new Date(signDate).toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"}) : "";
   let fmtStartDate = startDate ? new Date(startDate).toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"}) : "";

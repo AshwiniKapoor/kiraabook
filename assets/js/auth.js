@@ -106,7 +106,8 @@ window.switchPlan=(p,el)=>{
 window.buyNow=()=>{
   let link = selPlan==="annual" ? PAY_LINKS.annual : PAY_LINKS.monthly;
   let amt  = selPlan==="annual" ? "499" : "40";
-  if(confirm(`Pay ${CURRENCY}${amt} to activate the ${selPlan} plan?\n\nYou will be redirected to Razorpay. After payment, contact admin to receive your activation key.`)){
+  const _cur = localStorage.getItem("kb_currency")||"₹";
+  if(confirm(`Pay ${_cur}${amt} to activate the ${selPlan} plan?\n\nYou will be redirected to Razorpay. After payment, contact admin to receive your activation key.`)){
     window.open(link,"_blank");
   }
 };
