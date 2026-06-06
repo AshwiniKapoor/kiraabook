@@ -1209,4 +1209,25 @@ window.scrollToVacateNotices = ()=>{
   if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
 };
 
+// ── Cross-module exports ──────────────────────────────────────
+// Plain function declarations in this module that other modules
+// (tenant.js, admin.js, ui.js, account.js, properties.js) call as
+// bare names — they must be on window so global lookup finds them.
+window.checkTrialStatus    = checkTrialStatus;
+window.isOverdue           = isOverdue;
+window.getBillStatus       = getBillStatus;
+window.getDaysText         = getDaysText;
+window.updateOwnerStats    = updateOwnerStats;
+window.renderTenantList    = renderTenantList;
+window.renderAllBills      = renderAllBills;
+window.canAddTenant        = canAddTenant;
+window.renderTrialBanner   = renderTrialBanner;
+window.renderTenantLimitWarn = renderTenantLimitWarn;
+window.refreshBillsForOwner  = refreshBillsForOwner;
+window.renderClaimsSection   = renderClaimsSection;
+window.renderRemindersSection= renderRemindersSection;
+window.renderOverdueAlerts   = renderOverdueAlerts;
+window.renderVacantNotices   = renderVacantNotices;
+window.renderRooms           = renderRooms;
+window.populateTenantSelect  = populateTenantSelect;
 // ── ACCOUNT TAB ───────────────────────────────────────────────

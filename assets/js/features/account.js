@@ -1498,3 +1498,16 @@ window.signInWithFacebook = async()=>{
 
 // LinkedIn removed in v13
 
+// ── Cross-module exports ──────────────────────────────────────
+// These are plain function declarations inside this module. Every other
+// module (owner.js, auth.js, tenant.js, admin.js, maintenance.js) calls
+// them as bare names via the global object, so they must be on window.
+window.pushNotification           = pushNotification;
+window.subscribeOwnerNotifications = subscribeOwnerNotifications;
+window.subscribeRoomHistory       = subscribeRoomHistory;
+window.recordRoomHistoryEntry     = recordRoomHistoryEntry;
+window.closeRoomHistoryEntry      = closeRoomHistoryEntry;
+// AG-grid helpers used by admin.js
+window.renderFallbackTable        = renderFallbackTable;
+window.initAGGrid                 = initAGGrid;
+
