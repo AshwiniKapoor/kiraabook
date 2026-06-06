@@ -889,3 +889,10 @@ window.exportCSV=async()=>{
   toast("📊 CSV downloaded!");
 };
 
+// ── Cross-module exports ──────────────────────────────────────
+window.initAdmin         = initAdmin;         // called from auth.js and account.js
+window.loadAdminStats    = loadAdminStats;
+window.loadDatabase      = loadDatabase;
+window.viewDbCollection  = viewDbCollection;
+window.renderDbRecords   = renderDbRecords;
+

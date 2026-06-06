@@ -1246,4 +1246,6 @@ window.renderOverdueAlerts   = renderOverdueAlerts;
 window.renderVacantNotices   = renderVacantNotices;
 window.renderRooms           = renderRooms;
 window.populateTenantSelect  = populateTenantSelect;
+window.initOwner             = initOwner;        // called from auth.js and account.js
+window.autoCreateMonthlyBills = autoCreateMonthlyBills;
 // ── ACCOUNT TAB ───────────────────────────────────────────────
