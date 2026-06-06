@@ -1261,7 +1261,7 @@ window.openTenantsModal = ()=>{
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px">
       <div style="background:var(--blue-g);border:1px solid rgba(79,156,249,.25);border-radius:var(--rs);padding:10px;text-align:center">
         <div style="font-size:22px;font-weight:800;color:var(--blue)">${activeAppr.length}</div>
-        <div style="font-size:10px;color:var(--text3);font-weight:600">Active</div>
+        <div style="font-size:10px;color:var(--text3);font-weight:600">Total Tenants</div>
       </div>
       <div style="background:var(--green-g);border:1px solid rgba(34,197,94,.25);border-radius:var(--rs);padding:10px;text-align:center">
         <div style="font-size:22px;font-weight:800;color:var(--green)">${paidCount}</div>
