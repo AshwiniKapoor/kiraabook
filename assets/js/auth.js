@@ -1,4 +1,4 @@
-import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, PAY_LINKS, LIFETIME_KEY, collection, doc, getDoc } from './firebase.js';
+import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, PAY_LINKS, ADMIN_PASS, LIFETIME_KEY, collection, doc, getDoc } from './firebase.js';
 import { state } from './state.js';
 import { g, sv, show, toast, fmtDate, fmtMoney, genUID, esc, escAttr, daysBetween, closeModal, fmtDateNice } from './helpers.js';
 
