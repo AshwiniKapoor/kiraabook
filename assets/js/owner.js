@@ -1031,11 +1031,11 @@ function updateOwnerStats(){
   if(subEl) subEl.textContent=subParts.length ? subParts.join(" · ") : "no tenants yet";
   if(st){
     st.style.cursor="pointer";
-    st.title="Click to manage tenants";
-    st.onclick=()=>jumpToOwnerTab("tenants");
+    st.title="Click to see all tenants";
+    st.onclick=()=>openTenantsModal();
   }
   let stParent=st?.closest(".stat-card");
-  if(stParent){ stParent.style.cursor="pointer"; stParent.onclick=()=>jumpToOwnerTab("tenants"); }
+  if(stParent){ stParent.style.cursor="pointer"; stParent.onclick=()=>openTenantsModal(); }
 
   // Pending-approval banner section
   let pSec=document.getElementById("pending-section"), pVal=document.getElementById("pending-count");
@@ -1248,4 +1248,82 @@ window.renderRooms           = renderRooms;
 window.populateTenantSelect  = populateTenantSelect;
 window.initOwner             = initOwner;        // called from auth.js and account.js
 window.autoCreateMonthlyBills = autoCreateMonthlyBills;
+
+// ── TENANTS OVERVIEW MODAL ────────────────────────────────────
+window.openTenantsModal = ()=>{
+  let activeAppr = tenants.filter(t=>t.approved && t.active!==false);
+  let pendApproval = tenants.filter(t=>!t.approved && t.active!==false);
+  let paidCount   = activeAppr.filter(t=>t.paid).length;
+  let unpaidCount = activeAppr.filter(t=>!t.paid).length;
+
+  // Summary bar
+  document.getElementById("tenants-overview-summary").innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px">
+      <div style="background:var(--blue-g);border:1px solid rgba(79,156,249,.25);border-radius:var(--rs);padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--blue)">${activeAppr.length}</div>
+        <div style="font-size:10px;color:var(--text3);font-weight:600">Total Tenants</div>
+      </div>
+      <div style="background:var(--green-g);border:1px solid rgba(34,197,94,.25);border-radius:var(--rs);padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--green)">${paidCount}</div>
+        <div style="font-size:10px;color:var(--text3);font-weight:600">Paid</div>
+      </div>
+      <div style="background:var(--red-g);border:1px solid rgba(244,63,94,.25);border-radius:var(--rs);padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--red)">${unpaidCount}</div>
+        <div style="font-size:10px;color:var(--text3);font-weight:600">Unpaid</div>
+      </div>
+    </div>
+    ${pendApproval.length ? `<div style="background:var(--orange-g);border:1px solid rgba(251,146,60,.3);border-radius:var(--rs);padding:8px 12px;font-size:11px;font-weight:600;color:var(--orange)">⏳ ${pendApproval.length} tenant${pendApproval.length===1?"":"s"} awaiting your approval</div>` : ""}
+  `;
+
+  // Tenant rows
+  let html="";
+  if(!activeAppr.length){
+    html=`<div class="empty-state"><div class="empty-icon">🏠</div><div class="empty-text">No active tenants yet</div></div>`;
+  } else {
+    let sorted=[...activeAppr].sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+    html=sorted.map(t=>{
+      let ini=(t.name||"?").split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
+      let avatarHtml=t.profPhoto
+        ?`<img src="${t.profPhoto}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0"/>`
+        :`<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--gold));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#111;flex-shrink:0">${esc(ini)}</div>`;
+      let payBadge=t.paid
+        ?`<span style="background:var(--green-g);color:var(--green);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">✓ Paid</span>`
+        :`<span style="background:var(--red-g);color:var(--red);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">⚠ Unpaid</span>`;
+      return `<div style="background:var(--s3);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        ${avatarHtml}
+        <div style="flex:1;min-width:180px">
+          <div style="font-weight:700;font-size:14px;margin-bottom:3px">${esc(t.name)}</div>
+          <div style="font-size:11px;color:var(--text3);font-weight:500;line-height:1.7">
+            🏠 Room ${esc(t.room||"–")}
+            &nbsp;·&nbsp;
+            📅 Moved in ${t.date?fmtDate(t.date):"–"}
+            &nbsp;·&nbsp;
+            💰 ${fmtMoney(t.rent)}/mo
+            ${t.phone?`<br>📞 ${esc(t.phone)}`:""}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+          ${payBadge}
+          <button class="btn btn-edit" style="padding:4px 10px;font-size:10px" onclick="closeModal('tenants-overview-modal');openTenantDetail('${t.id}')">View →</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  // Pending approval section
+  if(pendApproval.length){
+    html+=`<div style="font-size:11px;font-weight:700;color:var(--orange);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px">⏳ Awaiting Approval</div>`;
+    html+=pendApproval.map(t=>`
+      <div style="background:var(--orange-g);border:1px solid rgba(251,146,60,.3);border-radius:var(--rs);padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:700;font-size:13px">${esc(t.name)}</div>
+          <div style="font-size:11px;color:var(--text3);font-weight:500">🏠 Room ${esc(t.room||"–")} · 💰 ${fmtMoney(t.rent)}/mo${t.phone?` · 📞 ${esc(t.phone)}`:""}</div>
+        </div>
+        <button class="btn btn-approve" style="padding:5px 12px;font-size:11px" onclick="closeModal('tenants-overview-modal');approveTenant('${t.id}')">✓ Approve</button>
+      </div>`).join("");
+  }
+
+  document.getElementById("tenants-overview-content").innerHTML=html;
+  document.getElementById("tenants-overview-modal").classList.add("open");
+};
 // ── ACCOUNT TAB ───────────────────────────────────────────────
