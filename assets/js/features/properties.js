@@ -156,16 +156,19 @@ window.renderProperties = ()=>{
   }
   properties.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   list.innerHTML = properties.map(p=>{
-    let myTenants = tenants.filter(t=>t.propertyId===p.id && t.active!==false);
-    // Rooms come from p.rooms array OR from rooms-collection (legacy)
-    let propRooms = Array.isArray(p.rooms) ? p.rooms : [];
-    // Also include any rooms occupied by tenants of this property that aren't in p.rooms
+    // Only approved + active tenants count as occupying a room (same filter as updateOwnerStats)
+    let myTenants = tenants.filter(t=>t.propertyId===p.id && t.approved && t.active!==false);
+    // Rooms come from p.rooms array — use a copy to avoid mutating the property object
+    let propRooms = Array.isArray(p.rooms) ? [...p.rooms] : [];
+    // Also include any rooms occupied by tenants that aren't yet in p.rooms
     myTenants.forEach(t=>{
       if(t.room && !propRooms.find(r=>r.roomNum===t.room)){
         propRooms.push({roomNum:t.room, floor:"", notes:"(auto-added from tenant)"});
       }
     });
-    let occupied = myTenants.length;
+    // Use unique occupied room set — same method as updateOwnerStats so tile and tab agree
+    let occupiedRooms = new Set(myTenants.map(t=>String(t.room||"").trim()).filter(Boolean));
+    let occupied = occupiedRooms.size;
     let totalUnits = propRooms.length || Number(p.units)||0;
     let vacant = Math.max(0, totalUnits - occupied);
     let typeIcons = {apartment:"🏢",house:"🏠",villa:"🏡",pg:"🏨",commercial:"🏬",other:"🏗️"};
