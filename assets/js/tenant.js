@@ -329,3 +329,7 @@ window.sendVacantNotice=async()=>{
   await logActivity("Vacant Notice Sent",`Tenant: ${t.name}, Date: ${date}`,t.name);
 };
 
+// ── Cross-module exports ──────────────────────────────────────
+window.renderTenantView = renderTenantView;   // called from auth.js and account.js
+window.renderAccountTab = renderAccountTab;   // called from owner.js and account.js
+
