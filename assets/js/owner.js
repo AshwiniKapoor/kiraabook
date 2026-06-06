@@ -664,8 +664,12 @@ function renderRooms(){
     r.occupied=!!t; r.tenantName=t?.name||"";
     if(r.occupied)occCount++; else vacCount++;
   });
-  let oe=document.getElementById("occ-count"),ve=document.getElementById("s-vacant"),vc=document.getElementById("vac-count");
-  if(oe)oe.textContent=occCount; if(ve)ve.textContent=vacCount; if(vc)vc.textContent=vacCount;
+  // occ-count and vac-count are inside the legacy Rooms tab panel — safe to update here.
+  // s-vacant is the DASHBOARD TILE and is owned by updateOwnerStats() (properties-based).
+  // Writing to it here would overwrite the correct properties-based count every time the
+  // rooms Firestore collection fires, which is the root cause of the wrong tile number.
+  let oe=document.getElementById("occ-count"),vc=document.getElementById("vac-count");
+  if(oe)oe.textContent=occCount; if(vc)vc.textContent=vacCount;
   if(!allRooms.length){ grid.innerHTML=`<div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-text">No rooms added yet</div></div>`; return; }
   grid.innerHTML=allRooms.map(r=>`
     <div class="room-card ${r.occupied?"occupied":""}">
