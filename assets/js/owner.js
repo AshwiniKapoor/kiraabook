@@ -116,7 +116,7 @@ async function initOwner(){
     else circle.textContent=(ownerName.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2))||"👤";
   }
   // v10: Restore settings
-  let sel=document.getElementById("set-currency"); if(sel) sel.value=CURRENCY;
+  let sel=document.getElementById("set-currency"); if(sel) sel.value=localStorage.getItem("kb_currency")||"₹";
   let nt=document.getElementById("set-notif-toggle");
   if(nt && localStorage.getItem("kb_browser_notif")==="on") nt.classList.add("on");
 
@@ -607,7 +607,10 @@ window.ownerAddTenant=async()=>{
     password:defaultPass,
     needsProfileCompletion:true
   };
-  let ref=await fbAdd("tenants",obj);
+  let ref;
+  try{
+    ref=await fbAdd("tenants",obj);
+  }catch(e){ toast("❌ Failed to save tenant: "+(e.message||e),"error"); return; }
   await recordRoomHistoryEntry(ref.id, name, room, rent, ownerID, obj.date);
 
   // Create current-month bill immediately so the tenant's rent appears in
