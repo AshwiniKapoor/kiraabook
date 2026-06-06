@@ -135,6 +135,8 @@ async function initOwner(){
     renderTenantList(); updateOwnerStats(); populateTenantSelect();
     renderOverdueAlerts(); renderVacantNotices();
     renderTenantLimitWarn(); renderRemindersSection();
+    // Keep Properties & Rooms tab in sync — tenant occupancy affects room status there
+    try{ window.renderProperties && window.renderProperties(); }catch(e){}
     // v11 fix: re-filter bills against my tenants list when it changes
     refreshBillsForOwner(ownerID);
     // v13: also re-render maintenance which may match via tenantId
