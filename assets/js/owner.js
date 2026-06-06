@@ -596,6 +596,30 @@ window.ownerAddTenant=async()=>{
   };
   let ref=await fbAdd("tenants",obj);
   await recordRoomHistoryEntry(ref.id, name, room, rent, ownerID, obj.date);
+
+  // Create current-month bill immediately so the tenant's rent appears in
+  // Pending right away — autoCreateMonthlyBills only runs once per month
+  // and would miss tenants added after it already executed.
+  if(Number(rent)>0){
+    let now2=new Date();
+    let mKey=now2.getFullYear()+"-"+(now2.getMonth()+1);
+    let due2=new Date(now2.getFullYear(),now2.getMonth(),7);
+    let mLabel=now2.toLocaleString("default",{month:"long",year:"numeric"});
+    let alreadyExists=bills.find(b=>b.tenantId===ref.id&&b.monthKey===mKey);
+    if(!alreadyExists){
+      await fbAdd("bills",{
+        tenantId:ref.id, tenantName:name, tenantPhone:phone,
+        ownerID, monthKey:mKey, monthLabel:mLabel,
+        dueDate:due2.toISOString().split("T")[0],
+        items:[{name:"Rent",amount:Number(rent)}],
+        total:Number(rent),
+        status:"pending",
+        createdOn:now2.toLocaleDateString("en-IN"),
+        autoCreated:true, lastReminded:null
+      });
+    }
+  }
+
   ["ot-name","ot-room","ot-rent","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes","ot-security","ot-advance","ot-property"].forEach(i=>sv(i,""));
   toast(`✅ ${name} added! Default password: ${defaultPass}`);
   alert(`✅ Tenant Added\n\nName: ${name}\nRoom: ${room}\nLogin name: ${name}\nDefault password: ${defaultPass}\n\nSecurity Deposit: ${fmtMoney(obj.securityDeposit)}\nAdvance Rent: ${fmtMoney(obj.advanceRent)}\n\nShare credentials with tenant. They can change password from their portal.`);
@@ -979,9 +1003,23 @@ function updateOwnerStats(){
   let activeAppr = tenants.filter(t=>t.approved && t.active!==false);
   let pendApproval = tenants.filter(t=>!t.approved && t.active!==false);
 
-  // Total tenants tile (active approved)
+  // Total tenants tile — clickable, shows paid/unpaid breakdown
+  let paidCount   = activeAppr.filter(t=>t.paid).length;
+  let unpaidCount = activeAppr.filter(t=>!t.paid).length;
   let st=document.getElementById("s-total"); if(st) st.textContent=activeAppr.length;
-  let subEl=document.getElementById("s-total-sub"); if(subEl) subEl.textContent=`${activeAppr.length} active · ${pendApproval.length} pending`;
+  let subParts=[];
+  if(paidCount)          subParts.push(`${paidCount} paid`);
+  if(unpaidCount)        subParts.push(`${unpaidCount} unpaid`);
+  if(pendApproval.length) subParts.push(`${pendApproval.length} awaiting`);
+  let subEl=document.getElementById("s-total-sub");
+  if(subEl) subEl.textContent=subParts.length ? subParts.join(" · ") : "no tenants yet";
+  if(st){
+    st.style.cursor="pointer";
+    st.title="Click to manage tenants";
+    st.onclick=()=>jumpToOwnerTab("tenants");
+  }
+  let stParent=st?.closest(".stat-card");
+  if(stParent){ stParent.style.cursor="pointer"; stParent.onclick=()=>jumpToOwnerTab("tenants"); }
 
   // Pending-approval banner section
   let pSec=document.getElementById("pending-section"), pVal=document.getElementById("pending-count");
@@ -991,7 +1029,11 @@ function updateOwnerStats(){
   // Collected this month + Pending amount
   let now=new Date();
   let curM=now.getMonth(), curY=now.getFullYear();
+  let curMonthKey=curY+"-"+(curM+1);
   let collected=0, pendingAmt=0;
+
+  // Track which tenants already have a bill this month (to avoid double-counting below)
+  let billedTenantIds=new Set();
   bills.forEach(b=>{
     let amt=Number(b.total||0);
     if(b.status==="paid"){
@@ -1010,7 +1052,18 @@ function updateOwnerStats(){
       // Unpaid bills count toward pending
       pendingAmt += amt;
     }
+    // Track every tenant who has ANY bill this month
+    if(b.monthKey===curMonthKey && b.tenantId) billedTenantIds.add(b.tenantId);
   });
+
+  // Approved active tenants with NO bill this month → rent is implicitly pending
+  // (covers newly added tenants and tenants added after autoCreateMonthlyBills ran)
+  activeAppr.forEach(t=>{
+    if(!billedTenantIds.has(t.id) && Number(t.rent)>0){
+      pendingAmt += Number(t.rent);
+    }
+  });
+
   let sc=document.getElementById("s-col"); if(sc) sc.textContent=fmtMoney(collected);
   let sp=document.getElementById("s-pend"); if(sp) sp.textContent=fmtMoney(pendingAmt);
 
