@@ -2,6 +2,19 @@ import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, PAY_LI
 import { state } from './state.js';
 import { g, sv, show, toast, fmtDate, fmtMoney, genUID, esc, escAttr, daysBetween, closeModal } from './helpers.js';
 
+// ── BILL FILTER (called from Firestore snapshot callbacks) ───────────────────
+function refreshBillsForOwner(ownerID){
+  let raw = window._rawBills || [];
+  let myTenantIds = new Set((tenants||[]).map(t=>t.id));
+  bills = raw.filter(b=>{
+    if(b.ownerID) return b.ownerID===ownerID;
+    return b.tenantId && myTenantIds.has(b.tenantId);
+  });
+  try{ updateOwnerStats(); }catch(e){}
+  try{ renderRemindersSection(); }catch(e){}
+  try{ renderAllBills(); }catch(e){}
+}
+
 // ── TRIAL STATUS / LIMITS ────────────────────────────────────
 function checkTrialStatus(owner){
   if(!owner) return {isTrial:false,expired:false,daysLeft:9999};
