@@ -1,4 +1,4 @@
-import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity } from '../firebase.js';
+import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, ADMIN_PASS } from '../firebase.js';
 import { state } from '../state.js';
 import { g, sv, show, toast, fmtDate, esc, escAttr, closeModal, genUID } from '../helpers.js';
 
