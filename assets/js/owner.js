@@ -14,6 +14,26 @@ function buildBillItems(t){
   return items;
 }
 
+// Returns the bill due date for a tenant given a billing-month reference date.
+// If owner set t.dueDay (1–28), use that day in the reference month.
+// pickNext=true: if that day has already passed, return next month's date (for new tenant on-add bills).
+// Falls back to 1-day-before move-in anniversary when dueDay not set.
+function calcTenantDueDate(t, refDate, pickNext=false){
+  let now = refDate || new Date();
+  let day = Number(t.dueDay);
+  if(day >= 1 && day <= 28){
+    let thisMonthDue = new Date(now.getFullYear(), now.getMonth(), day);
+    if(pickNext && thisMonthDue <= now){
+      return new Date(now.getFullYear(), now.getMonth()+1, day);
+    }
+    return thisMonthDue;
+  }
+  let moveIn = new Date(t.date || now);
+  let ref2 = t.lastPaidDate ? new Date(t.lastPaidDate) : moveIn;
+  let nextAnniv = new Date(ref2.getFullYear(), ref2.getMonth()+1, moveIn.getDate());
+  return new Date(nextAnniv - 864e5);
+}
+
 // Add a dynamic charge row to the Add/Edit Tenant form
 window.addOtherChargeRow=(name="",amount="")=>{
   let container=document.getElementById("ot-other-charges"); if(!container) return;
@@ -224,9 +244,7 @@ async function autoCreateMonthlyBills(){
   for(let t of autoTenants){
     let existingBill=bills.find(b=>b.tenantId===t.id&&normMK(b.monthKey)===normMK(monthKey));
     if(existingBill){ billsSkipped.push(t.name); continue; }
-    let moveIn=new Date(t.date||now);
-    let nextAnniv=new Date(now.getFullYear(),now.getMonth()+1,moveIn.getDate());
-    let due=new Date(nextAnniv-864e5);
+    let due=calcTenantDueDate(t,now);
     let items=buildBillItems(t);
     let total=items.reduce((s,i)=>s+Number(i.amount),0);
     await fbAdd("bills",{
@@ -429,12 +447,9 @@ function isOverdue(t){
   // Source of truth: if any unpaid bill exists, delegate to getBillStatus so both systems agree
   let myUnpaidBills=(bills||[]).filter(b=>b.tenantId===t.id&&b.status!=="paid");
   if(myUnpaidBills.length) return myUnpaidBills.some(b=>getBillStatus(b)==="overdue");
-  // No bills yet: fall back to move-in anniversary calculation
-  let moveIn=new Date(t.date);
-  let ref=t.lastPaidDate?new Date(t.lastPaidDate):moveIn;
-  let nextAnniv=new Date(ref.getFullYear(),ref.getMonth()+1,moveIn.getDate());
-  let due=new Date(nextAnniv-864e5);
-  let now=new Date(); now.setHours(0,0,0,0); due.setHours(0,0,0,0);
+  // No bills yet: fall back to owner-set dueDay or move-in anniversary calculation
+  let now=new Date(); now.setHours(0,0,0,0);
+  let due=calcTenantDueDate(t,now); due.setHours(0,0,0,0);
   return now>=due;
 }
 
@@ -703,6 +718,7 @@ window.ownerAddTenant=async()=>{
     notes:g("ot-notes"),
     maintenance:Number(g("ot-maintenance"))||0,
     otherCharges:getOtherCharges(),
+    dueDay:Number(g("ot-dueday"))||null,
     billMode:g("ot-billmode")||"auto",
     profPhoto:"", idPhoto:"", pvPhoto:"",
     paid:false, history:[], approved:true, active:true,
@@ -723,10 +739,8 @@ window.ownerAddTenant=async()=>{
   if(Number(rent)>0){
     let now2=new Date();
     let mKey=now2.getFullYear()+"-"+(now2.getMonth()+1);
-    // Due = 1 day before (move-in day) of next month
-    let moveIn2=new Date(obj.date||now2);
-    let nextAnniv2=new Date(now2.getFullYear(),now2.getMonth()+1,moveIn2.getDate());
-    let due2=new Date(nextAnniv2-864e5);
+    // Due = owner-set dueDay (picking next month if already past) or move-in anniversary
+    let due2=calcTenantDueDate(obj,now2,true);
     let mLabel=now2.toLocaleString("default",{month:"long",year:"numeric"});
     let alreadyExists=bills.find(b=>b.tenantId===ref.id&&normMK(b.monthKey)===normMK(mKey));
     if(!alreadyExists){
@@ -744,7 +758,7 @@ window.ownerAddTenant=async()=>{
     }
   }
 
-  ["ot-name","ot-room","ot-rent","ot-maintenance","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes","ot-security","ot-advance","ot-property"].forEach(i=>sv(i,""));
+  ["ot-name","ot-room","ot-rent","ot-maintenance","ot-dueday","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes","ot-security","ot-advance","ot-property"].forEach(i=>sv(i,""));
   let oc=document.getElementById("ot-other-charges"); if(oc) oc.innerHTML="";
   toast(`✅ ${name} added! Default password: ${defaultPass}`);
   alert(`✅ Tenant Added\n\nName: ${name}\nRoom: ${room}\nLogin name: ${name}\nDefault password: ${defaultPass}\n\nSecurity Deposit: ${fmtMoney(obj.securityDeposit)}\nAdvance Rent: ${fmtMoney(obj.advanceRent)}\n\nShare credentials with tenant. They can change password from their portal.`);

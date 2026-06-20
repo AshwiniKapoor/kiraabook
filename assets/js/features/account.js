@@ -894,6 +894,7 @@ window.openOwnerEditTenant=async(id)=>{
   sv("ot-room",t.room||"");
   sv("ot-rent",t.rent||"");
   sv("ot-maintenance",t.maintenance||"");
+  sv("ot-dueday",t.dueDay||"");
   sv("ot-property",t.propertyId||"");
   sv("ot-security",t.securityDeposit||"");
   sv("ot-advance",t.advanceRentBalance!=null?t.advanceRentBalance:(t.advanceRent||""));
@@ -929,6 +930,7 @@ window.saveOwnerEditedTenant=async()=>{
   let upd={
     name, room, rent,
     maintenance:Number(g("ot-maintenance"))||0,
+    dueDay:Number(g("ot-dueday"))||null,
     otherCharges:typeof getOtherCharges==="function"?getOtherCharges():(window.getOtherCharges?window.getOtherCharges():[]),
     propertyId: g("ot-property")||"",
     securityDeposit: Number(g("ot-security"))||0,
@@ -949,7 +951,7 @@ window.saveOwnerEditedTenant=async()=>{
       btn.textContent="➕ Add Tenant";
       btn.onclick=()=>ownerAddTenant();
     }
-    ["ot-name","ot-room","ot-rent","ot-maintenance","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes","ot-security","ot-advance","ot-property"].forEach(i=>sv(i,""));
+    ["ot-name","ot-room","ot-rent","ot-maintenance","ot-dueday","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes","ot-security","ot-advance","ot-property"].forEach(i=>sv(i,""));
     let oc2=document.getElementById("ot-other-charges"); if(oc2) oc2.innerHTML="";
     let firstTab=document.querySelector(".t-tab"); if(firstTab) firstTab.click();
     await logActivity("Tenant Edited by Owner",`Name: ${name}`,"Owner");
@@ -963,7 +965,7 @@ window.cancelOwnerEditTenant=()=>{
     btn.textContent="➕ Add Tenant";
     btn.onclick=()=>ownerAddTenant();
   }
-  ["ot-name","ot-room","ot-rent","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes"].forEach(i=>sv(i,""));
+  ["ot-name","ot-room","ot-rent","ot-maintenance","ot-dueday","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes"].forEach(i=>sv(i,""));
 };
 
 // ── ITEM 5: Admin Passkey Reset via OTP ──────────────────────
