@@ -142,33 +142,52 @@ async function renderTenantView(t){
   let duesAmt=document.getElementById("tv-dues-amount");
   let duesSub=document.getElementById("tv-dues-sub");
   let duesTitle=document.getElementById("tv-dues-title");
-  let hasActionable = overdue.length || due.length;
+  let hasActionable = overdue.length || due.length || upcoming.length;
   if(duesCard){
-    if(hasActionable){
+    if(unpaidBills.length){
       let isOverdueState = overdue.length > 0;
+      let isDueState = !isOverdueState && due.length > 0;
       duesCard.style.display="block";
-      duesCard.style.background=isOverdueState?"var(--red-g)":"var(--gold-g)";
-      duesCard.style.border=`1px solid ${isOverdueState?"rgba(244,63,94,.35)":"rgba(245,166,35,.35)"}`;
-      if(duesTitle) duesTitle.textContent=isOverdueState?"🚨 Overdue Dues":"⚠️ Pending Dues";
-      if(duesAmt){
-        duesAmt.textContent=fmtMoney(totalPending);
-        duesAmt.style.color=isOverdueState?"var(--red)":"var(--gold)";
+      duesCard.style.cursor = hasActionable ? "pointer" : "default";
+      if(isOverdueState){
+        duesCard.style.background="var(--red-g)";
+        duesCard.style.border="1px solid rgba(244,63,94,.35)";
+        if(duesTitle) duesTitle.textContent="🚨 Overdue Dues";
+        if(duesAmt){ duesAmt.textContent=fmtMoney(totalPending); duesAmt.style.color="var(--red)"; }
+      } else if(isDueState){
+        duesCard.style.background="var(--gold-g)";
+        duesCard.style.border="1px solid rgba(245,166,35,.35)";
+        if(duesTitle) duesTitle.textContent="⚠️ Pending Dues";
+        if(duesAmt){ duesAmt.textContent=fmtMoney(totalPending); duesAmt.style.color="var(--gold)"; }
+      } else {
+        duesCard.style.background="var(--s3)";
+        duesCard.style.border="1px solid var(--border)";
+        if(duesTitle) duesTitle.textContent="📅 Upcoming Dues";
+        if(duesAmt){ duesAmt.textContent=fmtMoney(totalPending); duesAmt.style.color="var(--text)"; }
       }
       if(duesSub){
         let parts=[];
-        if(overdue.length) parts.push(`${overdue.length} overdue 🚨`);
-        if(due.length)     parts.push(`${due.length} due soon ⏰`);
-        if(upcoming.length) parts.push(`${upcoming.length} upcoming`);
+        if(overdue.length)   parts.push(`${overdue.length} overdue 🚨`);
+        if(due.length)       parts.push(`${due.length} due soon ⏰`);
+        if(upcoming.length)  parts.push(`${upcoming.length} upcoming`);
         duesSub.textContent=parts.join(" · ");
       }
     } else {
-      duesCard.style.display="none";
+      // All paid — show a green "cleared" state so tile is always visible
+      duesCard.style.display="block";
+      duesCard.style.background="var(--green-g)";
+      duesCard.style.border="1px solid rgba(34,197,94,.25)";
+      duesCard.style.cursor="default";
+      if(duesTitle) duesTitle.textContent="✅ All Clear";
+      if(duesAmt){ duesAmt.textContent="₹0 due"; duesAmt.style.color="var(--green)"; }
+      if(duesSub)  duesSub.textContent="No pending bills";
     }
   }
 
   // ── Make tv-status badge clickable when dues exist ────────────
+  let hasDues = overdue.length || due.length;
   let statusEl2=document.getElementById("tv-status");
-  if(statusEl2 && hasActionable){
+  if(statusEl2 && hasDues){
     statusEl2.style.cursor="pointer";
     statusEl2.title="Tap to see all pending bills";
     statusEl2.onclick=()=>openPendingDetailsModal(t.name);
@@ -178,7 +197,7 @@ async function renderTenantView(t){
   }
 
   // ── Alert bar (keep for compact view at top) ─────────────────
-  if(hasActionable){
+  if(hasDues){
     let txt=document.getElementById("tv-alert-txt");
     let ico=document.getElementById("tv-alert-icon");
     alertEl.style.display="flex"; alertEl.style.cursor="pointer";
@@ -200,6 +219,7 @@ async function renderTenantView(t){
   } else {
     alertEl.style.display="none";
     alertEl.onclick=null;
+    if(statusEl2){ statusEl2.style.cursor=""; statusEl2.onclick=null; }
   }
 
   // Pending claim check
