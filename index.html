@@ -521,8 +521,18 @@
           <div><label>Full Name *</label><input id="ot-name" placeholder="Tenant full name"/></div>
           <div><label>Room No. *</label><input id="ot-room" placeholder="e.g. 101"/></div>
         </div>
-        <label>Monthly Rent *</label>
-        <input id="ot-rent" type="number" placeholder="e.g. 5000"/>
+        <div class="frow">
+          <div><label>Monthly Rent *</label><input id="ot-rent" type="number" placeholder="e.g. 5000" min="0"/></div>
+          <div><label>Monthly Maintenance <span style="font-size:9px;color:var(--text3)">(0 if none)</span></label><input id="ot-maintenance" type="number" placeholder="e.g. 500" min="0"/></div>
+        </div>
+
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <label style="margin:0;font-size:12px;font-weight:600;color:var(--text2)">Other Monthly Charges <span style="font-size:9px;color:var(--text3);font-weight:500">(optional)</span></label>
+            <button type="button" class="btn btn-ghost" style="font-size:10px;padding:4px 10px" onclick="addOtherChargeRow()">➕ Add Charge</button>
+          </div>
+          <div id="ot-other-charges"></div>
+        </div>
 
         <!-- v12: Security deposit & advance rent -->
         <div class="frow">
@@ -542,8 +552,8 @@
 
         <label>Bill Mode</label>
         <select id="ot-billmode">
-          <option value="auto">Automatic (same rent every month, auto-created)</option>
-          <option value="manual">Manual (owner creates bill each month)</option>
+          <option value="auto">🔄 Automatic — bill generated every month using the amounts above</option>
+          <option value="manual">✍️ Manual — owner creates each bill from the Billing tab</option>
         </select>
         <div class="frow">
           <div><label>Phone</label><input id="ot-phone" type="tel" placeholder="10-digit"/></div>

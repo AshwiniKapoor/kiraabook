@@ -893,6 +893,7 @@ window.openOwnerEditTenant=async(id)=>{
   sv("ot-name",t.name||"");
   sv("ot-room",t.room||"");
   sv("ot-rent",t.rent||"");
+  sv("ot-maintenance",t.maintenance||"");
   sv("ot-property",t.propertyId||"");
   sv("ot-security",t.securityDeposit||"");
   sv("ot-advance",t.advanceRentBalance!=null?t.advanceRentBalance:(t.advanceRent||""));
@@ -905,6 +906,9 @@ window.openOwnerEditTenant=async(id)=>{
   sv("ot-date",t.date||"");
   sv("ot-notes",t.notes||"");
   let bm=document.getElementById("ot-billmode"); if(bm) bm.value=t.billMode||"auto";
+  // Populate other charges rows
+  let ocCont=document.getElementById("ot-other-charges");
+  if(ocCont){ ocCont.innerHTML=""; (t.otherCharges||[]).forEach(c=>window.addOtherChargeRow&&window.addOtherChargeRow(c.name,c.amount)); }
   window._editingTenantId = id;
   let btn=document.getElementById("add-tenant-btn");
   if(btn){
@@ -924,6 +928,8 @@ window.saveOwnerEditedTenant=async()=>{
   if(!name||!room||!rent){ toast("Name, Room and Rent are required","error"); return; }
   let upd={
     name, room, rent,
+    maintenance:Number(g("ot-maintenance"))||0,
+    otherCharges:typeof getOtherCharges==="function"?getOtherCharges():(window.getOtherCharges?window.getOtherCharges():[]),
     propertyId: g("ot-property")||"",
     securityDeposit: Number(g("ot-security"))||0,
     advanceRentBalance: Number(g("ot-advance"))||0,
@@ -943,7 +949,8 @@ window.saveOwnerEditedTenant=async()=>{
       btn.textContent="➕ Add Tenant";
       btn.onclick=()=>ownerAddTenant();
     }
-    ["ot-name","ot-room","ot-rent","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes","ot-security","ot-advance","ot-property"].forEach(i=>sv(i,""));
+    ["ot-name","ot-room","ot-rent","ot-maintenance","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes","ot-security","ot-advance","ot-property"].forEach(i=>sv(i,""));
+    let oc2=document.getElementById("ot-other-charges"); if(oc2) oc2.innerHTML="";
     let firstTab=document.querySelector(".t-tab"); if(firstTab) firstTab.click();
     await logActivity("Tenant Edited by Owner",`Name: ${name}`,"Owner");
   }catch(e){ toast("Error: "+(e.message||"unknown"),"error"); }
