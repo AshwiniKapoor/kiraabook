@@ -874,6 +874,14 @@
     <div class="tv-cards-grid">
       <div class="tv-card"><div class="tv-card-title">💰 Monthly Rent</div><div class="tv-rent-big" id="tv-rent">–</div><div class="tv-rent-sub" id="tv-mo">–</div></div>
 
+      <!-- Pending Dues tile — shown only when bills are unpaid/overdue -->
+      <div class="tv-card" id="tv-dues-card" style="display:none;cursor:pointer" onclick="openPendingDetailsModal()">
+        <div class="tv-card-title" id="tv-dues-title">⚠️ Pending Dues</div>
+        <div id="tv-dues-amount" style="font-size:22px;font-weight:800;margin-top:6px">–</div>
+        <div id="tv-dues-sub" style="font-size:10px;color:var(--text3);font-weight:600;margin-top:4px">–</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:8px;font-weight:500">Tap to see breakdown →</div>
+      </div>
+
       <!-- v12: Financial Summary -->
       <div class="tv-card" id="tv-financial-card">
         <div class="tv-card-title">💼 Financial Summary</div>

@@ -122,54 +122,84 @@ async function renderTenantView(t){
     }).join("");
   }
 
-  // Alert bar — v13.x: aggregate ALL unpaid bills (not just the latest one)
-  let alert=document.getElementById("tv-alert");
+  // Categorise unpaid bills
+  let alertEl=document.getElementById("tv-alert");
   let unpaidBills=myBills.filter(b=>b.status!=="paid");
-  if(unpaidBills.length){
-    // Categorize each
-    let overdue=[], due=[], upcoming=[];
-    unpaidBills.forEach(b=>{
-      let s=getBillStatus(b);
-      if(s==="overdue") overdue.push(b);
-      else if(s==="due") due.push(b);
-      else upcoming.push(b);
-    });
-    let totalPending=unpaidBills.reduce((sum,b)=>sum+Number(b.total||0),0);
-    let count=unpaidBills.length;
-    // Stash for the modal
-    window._tenantUnpaidBills = unpaidBills;
-    // Choose alert tone based on worst category present
-    alert.style.display="flex";
-    alert.style.cursor="pointer";
-    alert.onclick=()=>openPendingDetailsModal(t.name);
-    alert.title="Click to see all pending bills";
-    let txt=document.getElementById("tv-alert-txt");
-    let ico=document.getElementById("tv-alert-icon");
-    if(overdue.length){
-      alert.style.background="var(--red-g)"; alert.style.borderColor="rgba(244,63,94,.3)";
-      ico.textContent="🚨";
-      txt.style.color="var(--red)";
-      if(count===1){
-        txt.innerHTML=`Your ${esc(overdue[0].monthLabel)} rent of <strong>${fmtMoney(overdue[0].total)}</strong> is overdue! <span style="opacity:.7;font-weight:600;font-size:10px;margin-left:6px">tap for details ›</span>`;
-      } else {
-        txt.innerHTML=`<strong>${count} pending bills</strong> — total <strong>${fmtMoney(totalPending)}</strong>${overdue.length?` · ${overdue.length} overdue 🚨`:""} <span style="opacity:.7;font-weight:600;font-size:10px;margin-left:6px">tap for details ›</span>`;
+  let overdue=[], due=[], upcoming=[];
+  unpaidBills.forEach(b=>{
+    let s=getBillStatus(b);
+    if(s==="overdue") overdue.push(b);
+    else if(s==="due") due.push(b);
+    else upcoming.push(b);
+  });
+  let totalPending=unpaidBills.reduce((sum,b)=>sum+Number(b.total||0),0);
+  let count=unpaidBills.length;
+  // Stash for the modal
+  window._tenantUnpaidBills = unpaidBills;
+
+  // ── Pending Dues tile ────────────────────────────────────────
+  let duesCard=document.getElementById("tv-dues-card");
+  let duesAmt=document.getElementById("tv-dues-amount");
+  let duesSub=document.getElementById("tv-dues-sub");
+  let duesTitle=document.getElementById("tv-dues-title");
+  let hasActionable = overdue.length || due.length;
+  if(duesCard){
+    if(hasActionable){
+      let isOverdueState = overdue.length > 0;
+      duesCard.style.display="block";
+      duesCard.style.background=isOverdueState?"var(--red-g)":"var(--gold-g)";
+      duesCard.style.border=`1px solid ${isOverdueState?"rgba(244,63,94,.35)":"rgba(245,166,35,.35)"}`;
+      if(duesTitle) duesTitle.textContent=isOverdueState?"🚨 Overdue Dues":"⚠️ Pending Dues";
+      if(duesAmt){
+        duesAmt.textContent=fmtMoney(totalPending);
+        duesAmt.style.color=isOverdueState?"var(--red)":"var(--gold)";
       }
-    } else if(due.length){
-      alert.style.background="var(--orange-g)"; alert.style.borderColor="rgba(251,146,60,.3)";
-      ico.textContent="⏰";
-      txt.style.color="var(--orange)";
-      if(count===1){
-        txt.innerHTML=`Rent due ${fmtDate(due[0].dueDate)}. Amount: <strong>${fmtMoney(due[0].total)}</strong> <span style="opacity:.7;font-weight:600;font-size:10px;margin-left:6px">tap for details ›</span>`;
-      } else {
-        txt.innerHTML=`<strong>${count} bills awaiting payment</strong> — total <strong>${fmtMoney(totalPending)}</strong> <span style="opacity:.7;font-weight:600;font-size:10px;margin-left:6px">tap for details ›</span>`;
+      if(duesSub){
+        let parts=[];
+        if(overdue.length) parts.push(`${overdue.length} overdue 🚨`);
+        if(due.length)     parts.push(`${due.length} due soon ⏰`);
+        if(upcoming.length) parts.push(`${upcoming.length} upcoming`);
+        duesSub.textContent=parts.join(" · ");
       }
     } else {
-      // Only upcoming bills
-      alert.style.display="none";
+      duesCard.style.display="none";
+    }
+  }
+
+  // ── Make tv-status badge clickable when dues exist ────────────
+  let statusEl2=document.getElementById("tv-status");
+  if(statusEl2 && hasActionable){
+    statusEl2.style.cursor="pointer";
+    statusEl2.title="Tap to see all pending bills";
+    statusEl2.onclick=()=>openPendingDetailsModal(t.name);
+  } else if(statusEl2){
+    statusEl2.style.cursor="";
+    statusEl2.onclick=null;
+  }
+
+  // ── Alert bar (keep for compact view at top) ─────────────────
+  if(hasActionable){
+    let txt=document.getElementById("tv-alert-txt");
+    let ico=document.getElementById("tv-alert-icon");
+    alertEl.style.display="flex"; alertEl.style.cursor="pointer";
+    alertEl.onclick=()=>openPendingDetailsModal(t.name);
+    alertEl.title="Tap to see all pending bills";
+    if(overdue.length){
+      alertEl.style.background="var(--red-g)"; alertEl.style.borderColor="rgba(244,63,94,.3)";
+      ico.textContent="🚨"; txt.style.color="var(--red)";
+      txt.innerHTML=count===1
+        ?`Your ${esc(overdue[0].monthLabel)} of <strong>${fmtMoney(overdue[0].total)}</strong> is overdue! <span style="opacity:.7;font-size:10px;margin-left:6px">tap tile for details ›</span>`
+        :`<strong>${count} pending bills</strong> — total <strong>${fmtMoney(totalPending)}</strong> · ${overdue.length} overdue 🚨 <span style="opacity:.7;font-size:10px;margin-left:6px">tap tile ›</span>`;
+    } else {
+      alertEl.style.background="var(--gold-g)"; alertEl.style.borderColor="rgba(245,166,35,.3)";
+      ico.textContent="⏰"; txt.style.color="var(--gold)";
+      txt.innerHTML=count===1
+        ?`Rent due ${fmtDate(due[0].dueDate)}: <strong>${fmtMoney(due[0].total)}</strong> <span style="opacity:.7;font-size:10px;margin-left:6px">tap tile for details ›</span>`
+        :`<strong>${count} bills awaiting payment</strong> — total <strong>${fmtMoney(totalPending)}</strong> <span style="opacity:.7;font-size:10px;margin-left:6px">tap tile ›</span>`;
     }
   } else {
-    alert.style.display="none";
-    alert.onclick=null;
+    alertEl.style.display="none";
+    alertEl.onclick=null;
   }
 
   // Pending claim check
