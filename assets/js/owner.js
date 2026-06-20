@@ -183,7 +183,10 @@ async function autoCreateMonthlyBills(){
   for(let t of autoTenants){
     let existingBill=bills.find(b=>b.tenantId===t.id&&b.monthKey===monthKey);
     if(!existingBill){
-      let due=new Date(now.getFullYear(),now.getMonth(),7);
+      // Due = 1 day before (move-in day) of next month
+      let moveIn=new Date(t.date||now);
+      let nextAnniv=new Date(now.getFullYear(),now.getMonth()+1,moveIn.getDate());
+      let due=new Date(nextAnniv-864e5);
       await fbAdd("bills",{
         tenantId:t.id, tenantName:t.name, tenantPhone:t.phone||"",
         ownerID, monthKey,
@@ -376,9 +379,15 @@ window.sendAllReminders=async()=>{
 // ── OVERDUE ───────────────────────────────────────────────────
 function isOverdue(t){
   if(t.paid) return false;
-  let ref=t.lastPaidDate?new Date(t.lastPaidDate):t.date?new Date(t.date):null;
-  if(!ref) return false;
-  return Math.floor((new Date()-ref)/(864e5))>=30;
+  if(!t.date) return false;
+  let moveIn=new Date(t.date);
+  let ref=t.lastPaidDate?new Date(t.lastPaidDate):moveIn;
+  // Due date = 1 day before (move-in day) of the month after the reference month
+  // e.g. moved in May 20 → due June 19; paid June 19 → next due July 19
+  let nextAnniv=new Date(ref.getFullYear(),ref.getMonth()+1,moveIn.getDate());
+  let due=new Date(nextAnniv-864e5);
+  let now=new Date(); now.setHours(0,0,0,0); due.setHours(0,0,0,0);
+  return now>=due;
 }
 
 function renderOverdueAlerts(){
@@ -621,7 +630,10 @@ window.ownerAddTenant=async()=>{
   if(Number(rent)>0){
     let now2=new Date();
     let mKey=now2.getFullYear()+"-"+(now2.getMonth()+1);
-    let due2=new Date(now2.getFullYear(),now2.getMonth(),7);
+    // Due = 1 day before (move-in day) of next month
+    let moveIn2=new Date(obj.date||now2);
+    let nextAnniv2=new Date(now2.getFullYear(),now2.getMonth()+1,moveIn2.getDate());
+    let due2=new Date(nextAnniv2-864e5);
     let mLabel=now2.toLocaleString("default",{month:"long",year:"numeric"});
     let alreadyExists=bills.find(b=>b.tenantId===ref.id&&b.monthKey===mKey);
     if(!alreadyExists){
