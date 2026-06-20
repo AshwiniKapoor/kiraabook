@@ -100,7 +100,7 @@ async function renderTenantView(t){
         :s==="overdue"?`<span style="color:var(--red);font-weight:700">🔴 Overdue</span>`
         :s==="due"?`<span style="color:var(--orange);font-weight:700">⏰ Due Soon</span>`
         :`<span style="color:var(--text3);font-weight:600">Pending</span>`;
-      let items=(b.items||[]).map(i=>`<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);padding:2px 0"><span>${esc(i.name)}</span><span>${fmtMoney(i.amount)}</span></div>`).join("");
+      let items=(b.items||[]).map(i=>`<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);padding:2px 0"><span>${esc(i.name||i.label||"")}</span><span>${fmtMoney(i.amount)}</span></div>`).join("");
       return `<div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-weight:700;font-size:12px">${esc(b.monthLabel||"")}</div><div style="font-weight:800;font-size:14px;color:var(--gold)">${fmtMoney(b.total)}</div></div>
         ${items?`<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">${items}</div>`:""}

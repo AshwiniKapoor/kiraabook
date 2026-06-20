@@ -54,7 +54,7 @@ window.openPendingDetailsModal = (tenantName)=>{
     let itemsHtml = "";
     if(b.items && b.items.length){
       itemsHtml = `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-        ${b.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);padding:2px 0"><span>${esc(i.label||"")}</span><span style="font-weight:600">${fmtMoney(i.amount)}</span></div>`).join("")}
+        ${b.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);padding:2px 0"><span>${esc(i.name||i.label||"")}</span><span style="font-weight:600">${fmtMoney(i.amount)}</span></div>`).join("")}
       </div>`;
     }
     return `<div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:8px;border-left:3px solid ${s==="overdue"?"var(--red)":s==="due"?"var(--orange)":"var(--blue)"}">
