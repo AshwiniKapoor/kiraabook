@@ -88,6 +88,13 @@ async function renderTenantView(t){
     }
   }
 
+  // New bill notification — set by autoCreateMonthlyBills when owner's auto-billing runs
+  if(t.newBillAlert && t.newBillAlert.month){
+    let a=t.newBillAlert;
+    toast(`📋 New bill for ${a.month}: ${fmtMoney(a.total)} — Due ${fmtDate(a.dueDate)}`,"info");
+    try{ await fbUpdate("tenants",t.id,{newBillAlert:null}); }catch(e){}
+  }
+
   // Tenant bills
   let allBills=await fbGet("bills");
   let myBills=allBills.filter(b=>b.tenantId===t.id).sort((a,b)=>new Date(b.dueDate||0)-new Date(a.dueDate||0));

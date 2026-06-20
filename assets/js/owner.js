@@ -5,6 +5,35 @@ import { g, sv, show, toast, fmtDate, fmtMoney, genUID, esc, escAttr, daysBetwee
 // Normalize monthKey to "YYYY-M" (no leading zero) so "2026-06" and "2026-6" compare equal
 function normMK(mk){ if(!mk) return ""; let [y,m]=mk.split("-"); return y+"-"+parseInt(m,10); }
 
+// Build bill items array from tenant's configured monthly charges
+function buildBillItems(t){
+  let items=[];
+  if(Number(t.rent)>0)        items.push({name:"Rent",        amount:Number(t.rent)});
+  if(Number(t.maintenance)>0) items.push({name:"Maintenance", amount:Number(t.maintenance)});
+  (t.otherCharges||[]).forEach(c=>{ if(c.name&&Number(c.amount)>0) items.push({name:c.name,amount:Number(c.amount)}); });
+  return items;
+}
+
+// Add a dynamic charge row to the Add/Edit Tenant form
+window.addOtherChargeRow=(name="",amount="")=>{
+  let container=document.getElementById("ot-other-charges"); if(!container) return;
+  let row=document.createElement("div");
+  row.className="frow"; row.style.alignItems="center"; row.style.marginBottom="6px";
+  row.innerHTML=`<div style="flex:2"><input class="oc-name" placeholder="Charge name (e.g. Water, Parking)" value="${esc(name)}" style="margin:0"/></div><div style="flex:1"><input class="oc-amount" type="number" placeholder="Amount" value="${amount}" min="0" style="margin:0"/></div><button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:0 8px;flex-shrink:0">✕</button>`;
+  container.appendChild(row);
+};
+
+// Read other charges from the dynamic rows
+function getOtherCharges(){
+  let charges=[];
+  document.querySelectorAll("#ot-other-charges .frow").forEach(row=>{
+    let name=(row.querySelector(".oc-name")?.value||"").trim();
+    let amount=parseFloat(row.querySelector(".oc-amount")?.value)||0;
+    if(name&&amount>0) charges.push({name,amount});
+  });
+  return charges;
+}
+
 // ── BILL FILTER (called from Firestore snapshot callbacks) ───────────────────
 function refreshBillsForOwner(ownerID){
   let raw = window._rawBills || [];
@@ -184,34 +213,41 @@ async function initOwner(){
 async function autoCreateMonthlyBills(){
   let now=new Date();
   let monthKey=now.getFullYear()+"-"+(now.getMonth()+1);
+  let monthStr=now.toLocaleString("default",{month:"long",year:"numeric"});
   let ownerID=localStorage.getItem("kb_owner_id");
   let lastRun=localStorage.getItem("kb_auto_month_"+ownerID);
   if(lastRun===monthKey) return;
   let st=checkTrialStatus(currentOwnerData);
-  if(st.expired) return; // don't auto-create bills if expired
+  if(st.expired) return;
   let autoTenants=tenants.filter(t=>t.approved&&t.rent&&t.billMode==="auto");
+  let billsCreated=[], billsSkipped=[];
   for(let t of autoTenants){
-    let existingBill=bills.find(b=>b.tenantId===t.id&&b.monthKey===monthKey);
-    if(!existingBill){
-      // Due = 1 day before (move-in day) of next month
-      let moveIn=new Date(t.date||now);
-      let nextAnniv=new Date(now.getFullYear(),now.getMonth()+1,moveIn.getDate());
-      let due=new Date(nextAnniv-864e5);
-      await fbAdd("bills",{
-        tenantId:t.id, tenantName:t.name, tenantPhone:t.phone||"",
-        ownerID, monthKey,
-        monthLabel:now.toLocaleString("default",{month:"long",year:"numeric"}),
-        dueDate:due.toISOString().split("T")[0],
-        items:[{name:"Rent",amount:Number(t.rent)||0}],
-        total:Number(t.rent)||0,
-        status:"pending",
-        createdOn:now.toLocaleDateString("en-IN"),
-        autoCreated:true,
-        lastReminded:null
-      });
-    }
+    let existingBill=bills.find(b=>b.tenantId===t.id&&normMK(b.monthKey)===normMK(monthKey));
+    if(existingBill){ billsSkipped.push(t.name); continue; }
+    let moveIn=new Date(t.date||now);
+    let nextAnniv=new Date(now.getFullYear(),now.getMonth()+1,moveIn.getDate());
+    let due=new Date(nextAnniv-864e5);
+    let items=buildBillItems(t);
+    let total=items.reduce((s,i)=>s+Number(i.amount),0);
+    await fbAdd("bills",{
+      tenantId:t.id, tenantName:t.name, tenantPhone:t.phone||"",
+      ownerID, monthKey, monthLabel:monthStr,
+      dueDate:due.toISOString().split("T")[0],
+      items, total,
+      status:"pending",
+      createdOn:now.toLocaleDateString("en-IN"),
+      autoCreated:true, lastReminded:null
+    });
+    // Notify tenant on their next login
+    try{ await fbUpdate("tenants",t.id,{newBillAlert:{month:monthStr,total,dueDate:due.toISOString().split("T")[0],createdOn:now.toISOString()}}); }catch(e){}
+    billsCreated.push(t.name);
   }
   localStorage.setItem("kb_auto_month_"+ownerID,monthKey);
+  // Notify owner
+  if(billsCreated.length){
+    toast(`📋 Auto-billing done: ${billsCreated.length} bill${billsCreated.length>1?"s":""} generated for ${monthStr}!`,"info");
+    try{ await logActivity("Auto Bills Generated",`${billsCreated.length} bills for ${monthStr}: ${billsCreated.join(", ")}`,"Owner"); }catch(e){}
+  }
 }
 
 // ── PAYMENT CLAIMS (Owner approves) ──────────────────────────
@@ -665,6 +701,8 @@ window.ownerAddTenant=async()=>{
     address:g("ot-address"), idType:g("ot-idtype"), idNum:g("ot-idnum"),
     date:g("ot-date")||new Date().toISOString().split("T")[0],
     notes:g("ot-notes"),
+    maintenance:Number(g("ot-maintenance"))||0,
+    otherCharges:getOtherCharges(),
     billMode:g("ot-billmode")||"auto",
     profPhoto:"", idPhoto:"", pvPhoto:"",
     paid:false, history:[], approved:true, active:true,
@@ -690,14 +728,15 @@ window.ownerAddTenant=async()=>{
     let nextAnniv2=new Date(now2.getFullYear(),now2.getMonth()+1,moveIn2.getDate());
     let due2=new Date(nextAnniv2-864e5);
     let mLabel=now2.toLocaleString("default",{month:"long",year:"numeric"});
-    let alreadyExists=bills.find(b=>b.tenantId===ref.id&&b.monthKey===mKey);
+    let alreadyExists=bills.find(b=>b.tenantId===ref.id&&normMK(b.monthKey)===normMK(mKey));
     if(!alreadyExists){
+      let items2=buildBillItems(obj);
+      let total2=items2.reduce((s,i)=>s+Number(i.amount),0);
       await fbAdd("bills",{
         tenantId:ref.id, tenantName:name, tenantPhone:phone,
         ownerID, monthKey:mKey, monthLabel:mLabel,
         dueDate:due2.toISOString().split("T")[0],
-        items:[{name:"Rent",amount:Number(rent)}],
-        total:Number(rent),
+        items:items2, total:total2,
         status:"pending",
         createdOn:now2.toLocaleDateString("en-IN"),
         autoCreated:true, lastReminded:null
@@ -705,7 +744,8 @@ window.ownerAddTenant=async()=>{
     }
   }
 
-  ["ot-name","ot-room","ot-rent","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes","ot-security","ot-advance","ot-property"].forEach(i=>sv(i,""));
+  ["ot-name","ot-room","ot-rent","ot-maintenance","ot-phone","ot-alt","ot-email","ot-address","ot-idtype","ot-idnum","ot-date","ot-notes","ot-security","ot-advance","ot-property"].forEach(i=>sv(i,""));
+  let oc=document.getElementById("ot-other-charges"); if(oc) oc.innerHTML="";
   toast(`✅ ${name} added! Default password: ${defaultPass}`);
   alert(`✅ Tenant Added\n\nName: ${name}\nRoom: ${room}\nLogin name: ${name}\nDefault password: ${defaultPass}\n\nSecurity Deposit: ${fmtMoney(obj.securityDeposit)}\nAdvance Rent: ${fmtMoney(obj.advanceRent)}\n\nShare credentials with tenant. They can change password from their portal.`);
   await logActivity("Owner Added Tenant",`Name: ${name}, Room: ${room}, Security: ${fmtMoney(obj.securityDeposit)}, Advance: ${fmtMoney(obj.advanceRent)}`,"Owner");
@@ -1329,6 +1369,8 @@ window.renderRooms           = renderRooms;
 window.populateTenantSelect  = populateTenantSelect;
 window.initOwner             = initOwner;        // called from auth.js and account.js
 window.autoCreateMonthlyBills = autoCreateMonthlyBills;
+window.getOtherCharges       = getOtherCharges;
+window.buildBillItems        = buildBillItems;
 
 // ── TENANTS OVERVIEW MODAL ────────────────────────────────────
 window.openTenantsModal = ()=>{
