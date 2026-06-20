@@ -240,7 +240,8 @@ async function renderTenantView(t){
   let info=[
     ["Tenant ID",t.tid||t.id],["Phone",t.phone||"–"],["Alt Phone",t.alt||"–"],
     ["Email",t.email||"–"],
-    ["Address",t.address||"–"],["ID Proof",t.idType||"–"],["Move-in",t.date?fmtDate(t.date):"–"]
+    ["Address",t.address||"–"],["ID Proof",t.idType||"–"],["Move-in",t.date?fmtDate(t.date):"–"],
+    ["Rent Due Day", t.dueDay ? "Day "+t.dueDay+" of every month" : "Per move-in date"]
   ];
   if(ownerInfo){
     info.push(["🏠 Owner Name", ownerInfo.name||"–"]);
