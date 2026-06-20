@@ -533,12 +533,57 @@ window.deleteTenant=async(id,name)=>{
 };
 
 // ── OPEN TENANT DETAIL ────────────────────────────────────────
-window.openTenantDetail=(id)=>{
+window.openTenantDetail=(id, mode="general")=>{
   let t=tenants.find(x=>x.id===id);
   if(!t) return;
   let ini=t.name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
   let avH=t.profPhoto?`<img src="${t.profPhoto}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 10px;display:block;"/>`
     :`<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--gold));display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#111;margin:0 auto 10px">${ini}</div>`;
+  let msg=`Dear ${t.name}, your rent of ${fmtMoney(t.rent)} is due. -KiraaBook`;
+  let wa=t.phone?`https://wa.me/${t.phone.replace(/[^0-9]/g,"")}?text=${encodeURIComponent(msg)}`:"";
+
+  if(mode==="bills"){
+    // Show unpaid bills for this tenant
+    let unpaidBills=bills.filter(b=>b.tenantId===t.id&&b.status!=="paid");
+    unpaidBills.sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+    let billsHtml=unpaidBills.length?unpaidBills.map(b=>{
+      let s=getBillStatus(b);
+      let accentColor=s==="overdue"?"var(--red)":"var(--gold)";
+      let itemRows=(b.items||[]).length>1
+        ?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">${(b.items||[]).map(i=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0"><span style="color:var(--text3)">${esc(i.name||i.label||"")}</span><span style="font-weight:600">${fmtMoney(i.amount)}</span></div>`).join("")}</div>`
+        :"";
+      return `<div style="background:var(--s3);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          <div>
+            <div style="font-weight:700;font-size:13px">${esc(b.monthLabel)}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Due: ${fmtDate(b.dueDate)}</div>
+            <div style="font-size:11px;font-weight:700;color:${accentColor};margin-top:2px">${getDaysText(b)}</div>
+          </div>
+          <div style="font-size:20px;font-weight:800;color:${accentColor};flex-shrink:0">${fmtMoney(b.total)}</div>
+        </div>
+        ${itemRows}
+        <button class="btn btn-success" style="width:100%;margin-top:10px;font-size:12px" onclick="markBillPaid('${b.id}');closeModal('tenant-detail-modal')">✓ Mark Paid</button>
+      </div>`;
+    }).join("")
+    :`<div class="empty-state" style="padding:20px 0"><div class="empty-icon">✅</div><div class="empty-text">No unpaid bills</div></div>`;
+
+    document.getElementById("tenant-detail-content").innerHTML=`
+      <div style="text-align:center;margin-bottom:16px">${avH}
+        <div style="font-size:18px;font-weight:800">${esc(t.name)}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Room ${esc(t.room||"–")} · ${fmtMoney(t.rent)}/mo · ${esc(t.phone||"–")}</div>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">📋 Unpaid Bills (${unpaidBills.length})</div>
+      ${billsHtml}
+    `;
+    document.getElementById("tenant-detail-actions").innerHTML=`
+      <button class="btn btn-edit" onclick="openOwnerEditTenant('${id}');closeModal('tenant-detail-modal')">✏️ Edit Details</button>
+      ${wa?`<a class="btn btn-warn" href="${wa}" target="_blank">💬 WhatsApp Reminder</a>`:""}
+    `;
+    document.getElementById("tenant-detail-modal").classList.add("open");
+    return;
+  }
+
+  // ── General / default view ─────────────────────────────────
   let docs="";
   if(t.idPhoto)docs+=`<div class="doc-item"><img src="${t.idPhoto}" onclick="viewImg('${t.idPhoto}')"/><div class="doc-label">${esc(t.idType||"ID")}</div></div>`;
   if(t.pvPhoto)docs+=`<div class="doc-item"><img src="${t.pvPhoto}" onclick="viewImg('${t.pvPhoto}')"/><div class="doc-label">Police</div></div>`;
@@ -573,8 +618,6 @@ window.openTenantDetail=(id)=>{
     ${docs?`<div style="margin-top:12px"><div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Documents</div><div class="doc-grid">${docs}</div></div>`:""}
     ${hist?`<div style="margin-top:12px"><div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">Payment History</div><div class="pay-hist">${hist}</div></div>`:""}
   `;
-  let msg=`Dear ${t.name}, your rent of ${fmtMoney(t.rent)} is due. -KiraaBook`;
-  let wa=t.phone?`https://wa.me/${t.phone.replace(/[^0-9]/g,"")}?text=${encodeURIComponent(msg)}`:"";
   let activeFlag = t.active!==false;
   document.getElementById("tenant-detail-actions").innerHTML=`
     <button class="btn btn-edit" onclick="openOwnerEditTenant('${id}');closeModal('tenant-detail-modal')">✏️ Edit Details</button>
@@ -996,7 +1039,7 @@ function renderTenantList(){
         <div style="font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:2px">${esc(t.tid||t.id)}</div>
         <span class="t-status ${sCls}">${status}</span>
       </div>
-      <button class="btn btn-primary" style="font-size:11px;padding:8px 14px;align-self:center;white-space:nowrap" onclick="event.stopPropagation();openTenantDetail('${t.id}')">👁 View Details</button>
+      <button class="btn btn-primary" style="font-size:11px;padding:8px 14px;align-self:center;white-space:nowrap" onclick="event.stopPropagation();openTenantDetail('${t.id}','${(currentFilter==='unpaid'||currentFilter==='overdue')?'bills':'general'}')">👁 View Details</button>
     </li>`;
   }).join("");
 }
