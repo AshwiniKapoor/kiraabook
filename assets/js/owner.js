@@ -2,6 +2,9 @@ import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, PAY_LI
 import { state } from './state.js';
 import { g, sv, show, toast, fmtDate, fmtMoney, genUID, esc, escAttr, daysBetween, closeModal } from './helpers.js';
 
+// Normalize monthKey to "YYYY-M" (no leading zero) so "2026-06" and "2026-6" compare equal
+function normMK(mk){ if(!mk) return ""; let [y,m]=mk.split("-"); return y+"-"+parseInt(m,10); }
+
 // ── BILL FILTER (called from Firestore snapshot callbacks) ───────────────────
 function refreshBillsForOwner(ownerID){
   let raw = window._rawBills || [];
@@ -169,6 +172,13 @@ async function initOwner(){
   let due=new Date(now.getFullYear(),now.getMonth(),7);
   document.getElementById("bill-due").value=due.toISOString().split("T")[0];
   setTimeout(()=>autoCreateMonthlyBills(),2000);
+
+  // Start properties subscription immediately so Properties tab shows data without needing a tab click
+  if(typeof window.subscribeProperties==="function") window.subscribeProperties(ownerID);
+
+  // Recheck trial status every 5 minutes so expiry reflects while app is open
+  if(window._trialCheckTimer) clearInterval(window._trialCheckTimer);
+  window._trialCheckTimer = setInterval(()=>{ if(currentOwnerData) renderTrialBanner(); }, 5*60*1000);
 }
 
 async function autoCreateMonthlyBills(){
@@ -380,10 +390,12 @@ window.sendAllReminders=async()=>{
 function isOverdue(t){
   if(t.paid) return false;
   if(!t.date) return false;
+  // Source of truth: if any unpaid bill exists, delegate to getBillStatus so both systems agree
+  let myUnpaidBills=(bills||[]).filter(b=>b.tenantId===t.id&&b.status!=="paid");
+  if(myUnpaidBills.length) return myUnpaidBills.some(b=>getBillStatus(b)==="overdue");
+  // No bills yet: fall back to move-in anniversary calculation
   let moveIn=new Date(t.date);
   let ref=t.lastPaidDate?new Date(t.lastPaidDate):moveIn;
-  // Due date = 1 day before (move-in day) of the month after the reference month
-  // e.g. moved in May 20 → due June 19; paid June 19 → next due July 19
   let nextAnniv=new Date(ref.getFullYear(),ref.getMonth()+1,moveIn.getDate());
   let due=new Date(nextAnniv-864e5);
   let now=new Date(); now.setHours(0,0,0,0); due.setHours(0,0,0,0);
@@ -456,7 +468,7 @@ window.markPaid=async(id,rent)=>{
   let t=tenants.find(x=>x.id===id);
   let hist=(t?.history||[]);
   let monthStr = now.toLocaleString("default",{month:"long",year:"numeric"});
-  let monthKey = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+  let monthKey = now.getFullYear()+"-"+(now.getMonth()+1);
   hist.unshift({month:monthStr,date:now.toLocaleDateString("en-IN"),amount:rent});
   await fbUpdate("tenants",id,{paid:true,history:hist,lastPaidDate:now.toISOString().split("T")[0]});
 
@@ -464,9 +476,9 @@ window.markPaid=async(id,rent)=>{
   // tiles stay in sync with the "Paid This Month" status shown on tenant cards.
   try{
     let ownerID = t?.ownerID || localStorage.getItem("kb_owner_id");
-    // Find an existing bill for this tenant + current month
+    // Find an existing bill for this tenant + current month (normalize to handle "2026-06" vs "2026-6")
     let allBills = window._rawBills || bills || [];
-    let existing = allBills.find(b=>b.tenantId===id && b.monthKey===monthKey);
+    let existing = allBills.find(b=>b.tenantId===id && normMK(b.monthKey)===normMK(monthKey));
     let nowIso = now.toISOString();
     let paidOnLabel = now.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
     if(existing){
@@ -484,7 +496,7 @@ window.markPaid=async(id,rent)=>{
         tenantPhone:t?.phone||"",
         ownerID:ownerID,
         monthKey, monthLabel:monthStr,
-        items:[{label:"Rent", amount:Number(rent||0)}],
+        items:[{name:"Rent", amount:Number(rent||0)}],
         total:Number(rent||0),
         dueDate:due.toISOString().split("T")[0],
         status:"paid",
@@ -509,9 +521,9 @@ window.markUnpaid=async(id)=>{
   // (always flip status, never delete — otherwise the unpaid rent disappears from Pending)
   try{
     let now=new Date();
-    let monthKey = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+    let monthKey = now.getFullYear()+"-"+(now.getMonth()+1);
     let allBills = window._rawBills || bills || [];
-    let existing = allBills.find(b=>b.tenantId===id && b.monthKey===monthKey && b.status==="paid");
+    let existing = allBills.find(b=>b.tenantId===id && normMK(b.monthKey)===normMK(monthKey) && b.status==="paid");
     if(existing){
       await fbUpdate("bills", existing.id, {
         status:"unpaid",
@@ -712,8 +724,17 @@ window.addRoom=async()=>{
 function renderRooms(){
   let grid=document.getElementById("room-grid");
   let allRooms=[...rooms];
+  // Merge rooms from the Properties system so both views stay in sync (issue #10)
+  (properties||[]).forEach(p=>{
+    (p.rooms||[]).forEach(r=>{
+      let key=String(r.roomNum).trim();
+      if(!allRooms.find(x=>String(x.roomNum).trim()===key)){
+        allRooms.push({id:"prop-"+p.id+"-"+r.roomNum, roomNum:r.roomNum, floor:r.floor||"", notes:r.notes||"", propertyId:p.id, propertyName:p.name||""});
+      }
+    });
+  });
   tenants.filter(t=>t.approved&&t.room).forEach(t=>{
-    if(!allRooms.find(r=>r.roomNum===t.room)) allRooms.push({id:"auto-"+t.id,roomNum:t.room,occupied:true,tenantName:t.name});
+    if(!allRooms.find(r=>String(r.roomNum).trim()===String(t.room).trim())) allRooms.push({id:"auto-"+t.id,roomNum:t.room,occupied:true,tenantName:t.name});
   });
   let occCount=0,vacCount=0;
   allRooms.forEach(r=>{
@@ -838,17 +859,21 @@ window.markBillPaid=async(id)=>{
   try{
     let bill = (window._rawBills||[]).find(b=>b.id===id) || await fbGetDoc("bills", id);
     if(bill && bill.tenantId){
-      let monthKey = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
-      if(bill.monthKey === monthKey){
+      let curMK = now.getFullYear()+"-"+(now.getMonth()+1);
+      if(normMK(bill.monthKey) === normMK(curMK)){
         let t = tenants.find(x=>x.id===bill.tenantId);
         if(t && !t.paid){
           let hist = (t.history||[]);
           let monthStr = now.toLocaleString("default",{month:"long",year:"numeric"});
-          // Don't double-add if history already has this month
           if(!hist.find(h=>h.month===monthStr)){
             hist.unshift({month:monthStr, date:now.toLocaleDateString("en-IN"), amount:bill.total});
           }
-          await fbUpdate("tenants", bill.tenantId, {paid:true, history:hist, lastPaidDate:now.toISOString().split("T")[0]});
+          let tenantUpdate = {paid:true, history:hist, lastPaidDate:now.toISOString().split("T")[0]};
+          // Decrement advance rent balance (issue #5: balance never decremented)
+          if(Number(t.advanceRentBalance)>0){
+            tenantUpdate.advanceRentBalance = Math.max(0, Number(t.advanceRentBalance) - Number(bill.total||0));
+          }
+          await fbUpdate("tenants", bill.tenantId, tenantUpdate);
         }
       }
     }
@@ -863,8 +888,8 @@ window.markBillUnpaid=async(id)=>{
     let bill = (window._rawBills||[]).find(b=>b.id===id) || await fbGetDoc("bills", id);
     if(bill && bill.tenantId){
       let now=new Date();
-      let monthKey = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
-      if(bill.monthKey === monthKey){
+      let curMK = now.getFullYear()+"-"+(now.getMonth()+1);
+      if(normMK(bill.monthKey) === normMK(curMK)){
         await fbUpdate("tenants", bill.tenantId, {paid:false});
       }
     }
@@ -958,7 +983,7 @@ window.openPlansModal = ()=>{
   let statusHtml = "";
   if(info){
     if(info.plan==="trial" || !info.plan){
-      let st = (typeof getTrialStatus==="function") ? getTrialStatus(info) : null;
+      let st = (typeof checkTrialStatus==="function") ? checkTrialStatus(info) : null;
       let daysLeft = st?.daysLeft ?? "?";
       statusHtml = `🆓 <strong>Current plan:</strong> Free Trial · ${daysLeft} day${daysLeft===1?"":"s"} remaining`;
     } else if(info.plan==="monthly"){
@@ -1109,28 +1134,23 @@ function updateOwnerStats(){
   let curMonthKey=curY+"-"+(curM+1);
   let collected=0, pendingAmt=0;
 
+  // Build a set of active tenant IDs so we can skip deactivated tenants (issue #8)
+  let activeTenantIds = new Set(activeAppr.map(t=>t.id));
+
   // Track which tenants already have a bill this month (to avoid double-counting below)
   let billedTenantIds=new Set();
   bills.forEach(b=>{
     let amt=Number(b.total||0);
-    if(b.status==="paid"){
-      // Determine paid date: prefer paidOnIso, then bill's monthKey, then dueDate
-      let paidDate=null;
-      if(b.paidOnIso){ try{ paidDate=new Date(b.paidOnIso); }catch(e){} }
-      if((!paidDate||isNaN(paidDate)) && b.monthKey){
-        let [y,m]=b.monthKey.split("-").map(Number);
-        if(y && m) paidDate=new Date(y,m-1,15);
-      }
-      if((!paidDate||isNaN(paidDate)) && b.dueDate){ paidDate=new Date(b.dueDate); }
-      if(paidDate && !isNaN(paidDate) && paidDate.getMonth()===curM && paidDate.getFullYear()===curY){
-        collected += amt;
-      }
-    } else {
-      // Unpaid bills count toward pending
-      pendingAmt += amt;
+    // Collected = bills FOR this month that are paid (issue #4: use monthKey not payment date)
+    if(b.status==="paid" && normMK(b.monthKey)===normMK(curMonthKey)){
+      collected += amt;
     }
-    // Track every tenant who has ANY bill this month
-    if(b.monthKey===curMonthKey && b.tenantId) billedTenantIds.add(b.tenantId);
+    // Pending = unpaid bills, but only for active approved tenants (issue #8)
+    if(b.status!=="paid"){
+      if(b.tenantId && activeTenantIds.has(b.tenantId)) pendingAmt += amt;
+    }
+    // Track every tenant who has a bill this month (normalize monthKey)
+    if(normMK(b.monthKey)===normMK(curMonthKey) && b.tenantId) billedTenantIds.add(b.tenantId);
   });
 
   // Approved active tenants with NO bill this month → rent is implicitly pending
