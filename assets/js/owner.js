@@ -34,6 +34,18 @@ function calcTenantDueDate(t, refDate, pickNext=false){
   return new Date(nextAnniv - 864e5);
 }
 
+// Month-accurate due date for a specific billing month (used by backfill billing).
+// dueDay set → that day of the bill month; else 1 day before move-in-day of the next month.
+function calcBillDueForMonth(t, billMonthDate){
+  let day = Number(t.dueDay);
+  if(day >= 1 && day <= 28){
+    return new Date(billMonthDate.getFullYear(), billMonthDate.getMonth(), day);
+  }
+  let moveIn = new Date(t.date || billMonthDate);
+  let nextAnniv = new Date(billMonthDate.getFullYear(), billMonthDate.getMonth()+1, moveIn.getDate());
+  return new Date(nextAnniv - 864e5);
+}
+
 // Add a dynamic charge row to the Add/Edit Tenant form
 window.addOtherChargeRow=(name="",amount="")=>{
   let container=document.getElementById("ot-other-charges"); if(!container) return;
@@ -233,38 +245,59 @@ async function initOwner(){
 async function autoCreateMonthlyBills(){
   let now=new Date();
   let monthKey=now.getFullYear()+"-"+(now.getMonth()+1);
-  let monthStr=now.toLocaleString("default",{month:"long",year:"numeric"});
   let ownerID=localStorage.getItem("kb_owner_id");
   let lastRun=localStorage.getItem("kb_auto_month_"+ownerID);
   if(lastRun===monthKey) return;
   let st=checkTrialStatus(currentOwnerData);
   if(st.expired) return;
   let autoTenants=tenants.filter(t=>t.approved&&t.rent&&t.billMode==="auto");
-  let billsCreated=[], billsSkipped=[];
+  let billsCreated=[];
+  let nowMonthStart=new Date(now.getFullYear(),now.getMonth(),1);
+  // Backfill window: don't generate bills older than 6 months back, so long-standing
+  // tenants don't suddenly get a flood of historic bills on first run after deploy.
+  let earliestAllowed=new Date(now.getFullYear(),now.getMonth()-5,1);
   for(let t of autoTenants){
-    let existingBill=bills.find(b=>b.tenantId===t.id&&normMK(b.monthKey)===normMK(monthKey));
-    if(existingBill){ billsSkipped.push(t.name); continue; }
-    let due=calcTenantDueDate(t,now);
-    let items=buildBillItems(t);
-    let total=items.reduce((s,i)=>s+Number(i.amount),0);
-    await fbAdd("bills",{
-      tenantId:t.id, tenantName:t.name, tenantPhone:t.phone||"",
-      ownerID, monthKey, monthLabel:monthStr,
-      dueDate:due.toISOString().split("T")[0],
-      items, total,
-      status:"pending",
-      createdOn:now.toLocaleDateString("en-IN"),
-      autoCreated:true, lastReminded:null
-    });
-    // Notify tenant on their next login
-    try{ await fbUpdate("tenants",t.id,{newBillAlert:{month:monthStr,total,dueDate:due.toISOString().split("T")[0],createdOn:now.toISOString()}}); }catch(e){}
-    billsCreated.push(t.name);
+    let moveIn=t.date?new Date(t.date):new Date(now);
+    let moveInMonthStart=new Date(moveIn.getFullYear(),moveIn.getMonth(),1);
+    // Start from move-in month (or the 6-month cap, whichever is later)
+    let cursor = moveInMonthStart>earliestAllowed ? moveInMonthStart : earliestAllowed;
+    let guard=0, latestNew=null;
+    // Walk month-by-month up to the current month, creating any missing bill.
+    // This guarantees an unpaid tenant accumulates one bill per missed month, so the
+    // owner Pending tile and the tenant Dues tile both reflect every unpaid month.
+    while(cursor<=nowMonthStart && guard<12){
+      guard++;
+      let mKey=cursor.getFullYear()+"-"+(cursor.getMonth()+1);
+      let exists=bills.find(b=>b.tenantId===t.id&&normMK(b.monthKey)===normMK(mKey));
+      if(!exists){
+        let due=calcBillDueForMonth(t,cursor);
+        let items=buildBillItems(t);
+        let total=items.reduce((s,i)=>s+Number(i.amount),0);
+        let mLabel=cursor.toLocaleString("default",{month:"long",year:"numeric"});
+        await fbAdd("bills",{
+          tenantId:t.id, tenantName:t.name, tenantPhone:t.phone||"",
+          ownerID, monthKey:mKey, monthLabel:mLabel,
+          dueDate:due.toISOString().split("T")[0],
+          items, total,
+          status:"pending",
+          createdOn:now.toLocaleDateString("en-IN"),
+          autoCreated:true, lastReminded:null
+        });
+        latestNew={month:mLabel,total,dueDate:due.toISOString().split("T")[0]};
+        billsCreated.push(t.name+" — "+mLabel);
+      }
+      cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
+    }
+    // Notify tenant once, about the most recent new bill (avoid alert spam on backfill)
+    if(latestNew){
+      try{ await fbUpdate("tenants",t.id,{newBillAlert:{...latestNew,createdOn:now.toISOString()}}); }catch(e){}
+    }
   }
   localStorage.setItem("kb_auto_month_"+ownerID,monthKey);
   // Notify owner
   if(billsCreated.length){
-    toast(`📋 Auto-billing done: ${billsCreated.length} bill${billsCreated.length>1?"s":""} generated for ${monthStr}!`,"info");
-    try{ await logActivity("Auto Bills Generated",`${billsCreated.length} bills for ${monthStr}: ${billsCreated.join(", ")}`,"Owner"); }catch(e){}
+    toast(`📋 Auto-billing: ${billsCreated.length} bill${billsCreated.length>1?"s":""} generated (incl. any missed months)!`,"info");
+    try{ await logActivity("Auto Bills Generated",`${billsCreated.length} bills: ${billsCreated.join(", ")}`,"Owner"); }catch(e){}
   }
 }
 
@@ -442,11 +475,13 @@ window.sendAllReminders=async()=>{
 
 // ── OVERDUE ───────────────────────────────────────────────────
 function isOverdue(t){
-  if(t.paid) return false;
-  if(!t.date) return false;
-  // Source of truth: if any unpaid bill exists, delegate to getBillStatus so both systems agree
+  // Bills are the source of truth: check them FIRST, before the coarse t.paid flag.
+  // (t.paid only tracks the current month, so paying this month must NOT hide an
+  //  older unpaid/overdue bill — e.g. a tenant who is 2 months behind.)
   let myUnpaidBills=(bills||[]).filter(b=>b.tenantId===t.id&&b.status!=="paid");
   if(myUnpaidBills.length) return myUnpaidBills.some(b=>getBillStatus(b)==="overdue");
+  if(t.paid) return false;
+  if(!t.date) return false;
   // No bills yet: fall back to owner-set dueDay or move-in anniversary calculation
   let now=new Date(); now.setHours(0,0,0,0);
   let due=calcTenantDueDate(t,now); due.setHours(0,0,0,0);
@@ -909,26 +944,29 @@ window.markBillPaid=async(id)=>{
   });
   toast("✅ Bill paid!");
 
-  // v13.x SYNC FIX: also mark the tenant as "Paid This Month" if this is current month's bill
+  // v13.x SYNC FIX: keep tenant record in sync when ANY bill is paid (incl. older
+  // back-rent months for tenants who were 2+ months behind), not just the current month.
   try{
     let bill = (window._rawBills||[]).find(b=>b.id===id) || await fbGetDoc("bills", id);
     if(bill && bill.tenantId){
-      let curMK = now.getFullYear()+"-"+(now.getMonth()+1);
-      if(normMK(bill.monthKey) === normMK(curMK)){
-        let t = tenants.find(x=>x.id===bill.tenantId);
-        if(t && !t.paid){
-          let hist = (t.history||[]);
-          let monthStr = now.toLocaleString("default",{month:"long",year:"numeric"});
-          if(!hist.find(h=>h.month===monthStr)){
-            hist.unshift({month:monthStr, date:now.toLocaleDateString("en-IN"), amount:bill.total});
-          }
-          let tenantUpdate = {paid:true, history:hist, lastPaidDate:now.toISOString().split("T")[0]};
-          // Decrement advance rent balance (issue #5: balance never decremented)
-          if(Number(t.advanceRentBalance)>0){
-            tenantUpdate.advanceRentBalance = Math.max(0, Number(t.advanceRentBalance) - Number(bill.total||0));
-          }
-          await fbUpdate("tenants", bill.tenantId, tenantUpdate);
+      let t = tenants.find(x=>x.id===bill.tenantId);
+      if(t){
+        let curMK = now.getFullYear()+"-"+(now.getMonth()+1);
+        let isCurrentMonth = normMK(bill.monthKey) === normMK(curMK);
+        let hist = (t.history||[]);
+        // Record history against the bill's actual month (so back-paid months show correctly)
+        let monthStr = bill.monthLabel || now.toLocaleString("default",{month:"long",year:"numeric"});
+        if(!hist.find(h=>h.month===monthStr)){
+          hist.unshift({month:monthStr, date:now.toLocaleDateString("en-IN"), amount:bill.total});
         }
+        let tenantUpdate = {history:hist, lastPaidDate:now.toISOString().split("T")[0]};
+        // "Paid this month" flag only reflects the current month's bill
+        if(isCurrentMonth) tenantUpdate.paid = true;
+        // Decrement advance rent balance for whichever month was settled (issue #5)
+        if(Number(t.advanceRentBalance)>0){
+          tenantUpdate.advanceRentBalance = Math.max(0, Number(t.advanceRentBalance) - Number(bill.total||0));
+        }
+        await fbUpdate("tenants", bill.tenantId, tenantUpdate);
       }
     }
   }catch(e){ console.warn("[markBillPaid] tenant sync failed:", e); }

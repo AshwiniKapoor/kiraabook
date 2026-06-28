@@ -165,9 +165,9 @@
     <!-- Owner forgot password box -->
     <div id="owner-forgot-box" style="display:none" class="reset-box">
       <div class="reset-box-title">🔑 Reset Owner Password</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500;line-height:1.6">Enter your registered phone number to receive an OTP, then set a new password.</div>
-      <label style="margin-top:0">Registered Phone Number (with country code)</label>
-      <input id="owner-forgot-phone" type="tel" placeholder="e.g. +1234567890 or 9876543210"/>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500;line-height:1.6">Enter the phone number registered on your account to verify your identity, then set a new password.</div>
+      <label style="margin-top:0">Registered Phone Number</label>
+      <input id="owner-forgot-phone" type="tel" placeholder="e.g. 9876543210"/>
       <div class="err-msg" id="owner-forgot-err"></div>
       <div id="owner-otp-box" style="display:none">
         <label style="margin-top:0">Enter OTP from SMS</label>
@@ -183,8 +183,8 @@
         <button class="btn btn-success" style="width:100%;margin-top:8px" onclick="doOwnerResetPassword()">🔒 Set New Password</button>
       </div>
       <div id="owner-forgot-verify-btn-wrap" style="margin-top:8px">
-        <button class="btn btn-gold" style="width:100%" onclick="sendOtpToOwner()">📨 Send OTP via SMS</button>
-        <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px" onclick="verifyOwnerForgot()">Or verify by phone-match only (no OTP)</button>
+        <button class="btn btn-gold" style="width:100%" onclick="verifyOwnerForgot()">✅ Verify Identity &amp; Continue</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px" onclick="sendOtpToOwner()">📨 Or send OTP via SMS (needs SMS setup)</button>
       </div>
       <div id="recaptcha-container-owner"></div>
       <button class="btn btn-ghost" style="width:100%;margin-top:6px" onclick="hideOwnerForgot()">✕ Cancel</button>
@@ -235,9 +235,9 @@
       <!-- Forgot password inline -->
       <div id="forgot-box" style="display:none" class="reset-box">
         <div class="reset-box-title">🔑 Reset Tenant Password</div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500;line-height:1.6">Enter your registered phone to receive an OTP, then set a new password.</div>
-        <label style="margin-top:0">Registered Phone Number (with country code)</label>
-        <input id="forgot-phone" type="tel" placeholder="e.g. +1234567890 or 9876543210" style="margin-bottom:0"/>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500;line-height:1.6">Enter the phone number your owner registered for you to verify your identity, then set a new password.</div>
+        <label style="margin-top:0">Registered Phone Number</label>
+        <input id="forgot-phone" type="tel" placeholder="e.g. 9876543210" style="margin-bottom:0"/>
         <div class="err-msg" id="forgot-err"></div>
         <div id="tenant-otp-box" style="display:none">
           <label style="margin-top:0">Enter OTP from SMS</label>
@@ -253,8 +253,8 @@
           <button class="btn btn-success" style="width:100%;margin-top:8px" onclick="doResetPassword()">🔒 Set New Password</button>
         </div>
         <div id="forgot-verify-btn-wrap" style="margin-top:8px">
-          <button class="btn btn-gold" style="width:100%" onclick="sendOtpToTenant()">📨 Send OTP via SMS</button>
-          <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px" onclick="verifyForgotPhone()">Or verify by phone-match only (no OTP)</button>
+          <button class="btn btn-gold" style="width:100%" onclick="verifyForgotPhone()">✅ Verify Identity &amp; Continue</button>
+          <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px" onclick="sendOtpToTenant()">📨 Or send OTP via SMS (needs SMS setup)</button>
         </div>
         <div id="recaptcha-container-tenant"></div>
         <button class="btn btn-ghost" style="width:100%;margin-top:6px" onclick="hideForgotPassword()">✕ Cancel</button>
