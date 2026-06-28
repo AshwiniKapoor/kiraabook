@@ -828,47 +828,84 @@ window.openCollectedModal=()=>{
   document.getElementById("collected-modal").classList.add("open");
 };
 
+// Pay a bill from inside the Pending modal, then refresh the modal in place so
+// the owner can settle several arrears months without reopening it each time.
+window.payFromPendingModal=async(billId)=>{
+  await window.markBillPaid(billId);
+  setTimeout(()=>{ if(document.getElementById("pending-modal")?.classList.contains("open")) window.openPendingModal(); }, 500);
+};
+
 window.openPendingModal=()=>{
-  // Same source of truth as the Pending tile (unpaid bills of active tenants)
-  let pend=(window.getPendingBills?window.getPendingBills():[]).slice();
-  let total=pend.reduce((s,b)=>s+Number(b.total||0),0);
-  // Group by overdue/due-soon/upcoming
-  let now=new Date(); now.setHours(0,0,0,0);
-  pend.forEach(b=>{
-    let due=b.dueDate?new Date(b.dueDate):null;
-    if(due){ due.setHours(0,0,0,0); b._diff=Math.round((due-now)/(864e5)); }
-    else b._diff=999;
-  });
-  pend.sort((a,b)=>a._diff-b._diff);
-  let html=`<div style="background:var(--orange-g);border:1px solid rgba(251,146,60,.3);border-radius:var(--rs);padding:12px;margin-bottom:14px;text-align:center">
-    <div style="font-size:11px;color:var(--text3);font-weight:600;margin-bottom:4px">Total Pending</div>
-    <div style="font-size:26px;font-weight:800;color:var(--orange)">${fmtMoney(total)}</div>
-    <div style="font-size:11px;color:var(--text3);font-weight:600;margin-top:4px">${pend.length} bill${pend.length===1?"":"s"} unpaid</div>
+  // Single source of truth — bifurcated into THIS MONTH vs ARREARS, grouped by tenant
+  let pb=(window.getPendingBreakdown?window.getPendingBreakdown():{overall:0,curMonth:0,arrears:0,arrearsTenants:0,tenantGroups:[]});
+  let tmap={}; (tenants||[]).forEach(t=>{ tmap[t.id]=t; });
+  let billCount=pb.tenantGroups.reduce((s,g)=>s+g.bills.length,0);
+
+  // ── Bifurcated summary: This Month · Arrears · Total ──
+  let html=`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <div style="flex:1;min-width:120px;background:var(--orange-g);border:1px solid rgba(251,146,60,.3);border-radius:var(--rs);padding:10px;text-align:center">
+      <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">📅 This Month</div>
+      <div style="font-size:20px;font-weight:800;color:var(--orange);margin-top:4px">${fmtMoney(pb.curMonth)}</div>
+      <div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:2px">current cycle dues</div>
+    </div>
+    <div style="flex:1;min-width:120px;background:var(--red-g);border:1px solid rgba(244,63,94,.3);border-radius:var(--rs);padding:10px;text-align:center">
+      <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">⏳ Arrears</div>
+      <div style="font-size:20px;font-weight:800;color:var(--red);margin-top:4px">${fmtMoney(pb.arrears)}</div>
+      <div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:2px">${pb.arrearsTenants} tenant${pb.arrearsTenants===1?"":"s"} behind</div>
+    </div>
+    <div style="flex:1;min-width:120px;background:var(--s3);border:1px solid var(--border);border-radius:var(--rs);padding:10px;text-align:center">
+      <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Σ Total Pending</div>
+      <div style="font-size:20px;font-weight:800;color:var(--text);margin-top:4px">${fmtMoney(pb.overall)}</div>
+      <div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:2px">${billCount} unpaid bill${billCount===1?"":"s"}</div>
+    </div>
   </div>`;
-  if(!pend.length){
+
+  if(!pb.tenantGroups.length){
     html += `<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-text">All bills are paid!</div></div>`;
   } else {
-    html += pend.map(b=>{
-      let label, color;
-      if(b._diff<0){ label=`🚨 Overdue by ${Math.abs(b._diff)} day${Math.abs(b._diff)===1?"":"s"}`; color="var(--red)"; }
-      else if(b._diff===0){ label="🔔 Due TODAY"; color="var(--orange)"; }
-      else if(b._diff<=3){ label=`⏰ Due in ${b._diff} day${b._diff===1?"":"s"}`; color="var(--orange)"; }
-      else { label=`📅 Due in ${b._diff} days`; color="var(--text2)"; }
-      let t=tenants.find(x=>x.id===b.tenantId);
-      let waBtn = t?.phone ? `<button class="btn btn-warn" style="font-size:10px;padding:4px 8px" onclick="sendOneOffReminder('${b.id}')">💬 WhatsApp</button>`:"";
-      return `<div style="background:var(--s3);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px;border-left:3px solid ${color}">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <div>
-            <div style="font-weight:700;font-size:13px">${esc(b.tenantName||"–")}</div>
-            <div style="font-size:10px;color:var(--text3);font-weight:500;margin-top:2px">${esc(b.monthLabel||"–")} · Due ${fmtDate(b.dueDate)}</div>
-            <div style="font-size:10px;color:${color};font-weight:700;margin-top:3px">${label}</div>
+    // ── Per-tenant groups, worst-arrears first ──
+    html += pb.tenantGroups.map(g=>{
+      let t=tmap[g.tenantId];
+      let room=t?.room?` · Room ${esc(t.room)}`:"";
+      let inArrears=g.arrearsCount>0;
+      let accent=inArrears?"var(--red)":"var(--orange)";
+      let badge=inArrears
+        ? `<span style="background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px">🔴 ${g.arrearsCount} month${g.arrearsCount===1?"":"s"} behind</span>`
+        : `<span style="background:var(--orange);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px">⏰ This month</span>`;
+      let waBtn = t?.phone ? `<button class="btn btn-warn" style="font-size:10px;padding:4px 8px" onclick="sendOneOffReminder('${g.bills[0].id}')">💬 Remind</button>`:"";
+
+      // each unpaid month for this tenant
+      let rows=g.bills.map(b=>{
+        let s=(window.getBillStatus?window.getBillStatus(b):"");
+        let sLbl = s==="overdue"?`<span style="color:var(--red);font-weight:700">overdue</span>`
+                 : s==="due"?`<span style="color:var(--orange);font-weight:700">due soon</span>`
+                 : `<span style="color:var(--text3);font-weight:600">upcoming</span>`;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)">
+          <div style="min-width:0">
+            <div style="font-weight:700;font-size:12px">${esc(b.monthLabel||"–")}</div>
+            <div style="font-size:9px;color:var(--text3);font-weight:500;margin-top:1px">Due ${fmtDate(b.dueDate)} · ${sLbl}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <div style="font-weight:800;color:${color};font-size:14px">${fmtMoney(b.total)}</div>
-            ${waBtn}
-            <button class="btn btn-success" style="font-size:10px;padding:4px 8px" onclick="markBillPaid('${b.id}');closeModal('pending-modal')">✓ Paid</button>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <div style="font-weight:800;font-size:13px">${fmtMoney(b.total)}</div>
+            <button class="btn btn-success" style="font-size:10px;padding:4px 8px" onclick="payFromPendingModal('${b.id}')">✓ Paid</button>
+          </div>
+        </div>`;
+      }).join("");
+
+      return `<div style="background:var(--s3);border:1px solid var(--border);border-left:3px solid ${accent};border-radius:var(--rs);padding:10px 12px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+          <div style="min-width:0">
+            <div style="font-weight:800;font-size:13px">${esc(g.name)}${room}</div>
+            <div style="margin-top:4px">${badge}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:9px;color:var(--text3);font-weight:600">total owed</div>
+            <div style="font-weight:800;font-size:16px;color:${accent}">${fmtMoney(g.total)}</div>
+            ${inArrears?`<div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:1px">arrears ${fmtMoney(g.arrearsAmt)} + this mo ${fmtMoney(g.currentAmt)}</div>`:""}
           </div>
         </div>
+        ${rows}
+        ${waBtn?`<div style="margin-top:8px;text-align:right">${waBtn}</div>`:""}
       </div>`;
     }).join("");
   }

@@ -1309,6 +1309,45 @@ function getCollectedBills(monthDate){
   });
 }
 
+// Comparable month index from a monthKey ("2026-6" → 2026*12+5). null if unparseable.
+function monthKeyIndex(mk){
+  let p=normMK(mk).split("-"); let y=Number(p[0]), m=Number(p[1]);
+  if(!y||!m) return null;
+  return y*12+(m-1);
+}
+function currentMonthIdx(){ let n=new Date(); return n.getFullYear()*12+n.getMonth(); }
+// A bill is "arrears" if its billing month is strictly before the current month.
+function isArrearBill(b){ let i=monthKeyIndex(b.monthKey); return i!=null && i<currentMonthIdx(); }
+
+// Bifurcates pending into THIS-MONTH vs ARREARS (previous months), grouped by
+// tenant and sorted worst-first, so the owner can see who is 2/3 months behind.
+function getPendingBreakdown(){
+  let pend=getPendingBills();
+  let c=currentMonthIdx();
+  let curMonth=0, arrears=0;
+  let groups={};
+  pend.forEach(b=>{
+    let amt=Number(b.total||0);
+    let i=monthKeyIndex(b.monthKey);
+    if(i!=null && i<c) arrears+=amt; else curMonth+=amt; // unknown/future → treat as current
+    let id=b.tenantId||"?";
+    let g=(groups[id]=groups[id]||{tenantId:id, name:b.tenantName||"–", bills:[], total:0, arrearsCount:0, arrearsAmt:0, currentAmt:0});
+    g.bills.push(b);
+    g.total+=amt;
+    if(i!=null && i<c){ g.arrearsCount++; g.arrearsAmt+=amt; } else g.currentAmt+=amt;
+  });
+  let tenantGroups=Object.values(groups);
+  tenantGroups.forEach(g=>g.bills.sort((a,b)=>(monthKeyIndex(a.monthKey)??0)-(monthKeyIndex(b.monthKey)??0)));
+  // worst first: most months in arrears, then biggest balance
+  tenantGroups.sort((a,b)=> b.arrearsCount-a.arrearsCount || b.total-a.total);
+  return {
+    overall: curMonth+arrears,
+    curMonth, arrears,
+    arrearsTenants: tenantGroups.filter(g=>g.arrearsCount>0).length,
+    tenantGroups
+  };
+}
+
 function updateOwnerStats(){
   // Active (not deactivated) approved tenants
   let activeAppr = tenants.filter(t=>t.approved && t.active!==false);
@@ -1344,10 +1383,18 @@ function updateOwnerStats(){
   // an active tenant. No phantom/implicit rent — the bill is the source of truth.
   let now=new Date();
   let collected=getCollectedBills(now).reduce((s,b)=>s+Number(b.total||0),0);
-  let pendingAmt=getPendingBills().reduce((s,b)=>s+Number(b.total||0),0);
+  let pb=getPendingBreakdown();          // {overall, curMonth, arrears, arrearsTenants, tenantGroups}
+  let pendingAmt=pb.overall;
 
   let sc=document.getElementById("s-col"); if(sc) sc.textContent=fmtMoney(collected);
   let sp=document.getElementById("s-pend"); if(sp) sp.textContent=fmtMoney(pendingAmt);
+  // Bifurcate the sub-line: this month's dues vs carried-over arrears
+  let spSub=document.getElementById("s-pend-sub");
+  if(spSub){
+    if(pb.arrears>0) spSub.innerHTML=`📅 This mo ${fmtMoney(pb.curMonth)} · ⏳ Arrears ${fmtMoney(pb.arrears)}`;
+    else if(pb.curMonth>0) spSub.textContent="all current month";
+    else spSub.textContent="all clear";
+  }
 
   // Make Collected/Pending tiles clickable (item 4)
   if(sc){ sc.style.cursor="pointer"; sc.title="Click to see collected bills this month"; sc.onclick=()=>openCollectedModal(); }
@@ -1501,6 +1548,7 @@ window.getBillStatus       = getBillStatus;
 window.getDaysText         = getDaysText;
 window.billPaidDate        = billPaidDate;
 window.getPendingBills     = getPendingBills;
+window.getPendingBreakdown = getPendingBreakdown;
 window.getCollectedBills   = getCollectedBills;
 window.getActiveTenantIdSet= getActiveTenantIdSet;
 window.updateOwnerStats    = updateOwnerStats;
