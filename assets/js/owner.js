@@ -1002,6 +1002,88 @@ function getDaysText(b){
   if(diff<0)return`Overdue by ${Math.abs(diff)} days`; if(diff===0)return"Due TODAY!"; if(diff===1)return"Due TOMORROW!"; return`Due in ${diff} days`;
 }
 
+// ── EXPORT: ACTIVE TENANTS → EXCEL ────────────────────────────
+// Builds one clearly-labeled row per active tenant (all profile, rent,
+// charges and dues details) and downloads a real .xlsx (CSV fallback).
+function buildActiveTenantRows(){
+  let propMap={}; (properties||[]).forEach(p=>{ propMap[p.id]=p.name||""; });
+  let active=(tenants||[]).filter(t=>t.approved && t.active!==false);
+  return active.map(t=>{
+    let other=(t.otherCharges||[]).filter(c=>c.name&&Number(c.amount)>0)
+      .map(c=>`${c.name}: ${Number(c.amount)}`).join("; ");
+    let rent=Number(t.rent)||0, maint=Number(t.maintenance)||0;
+    let otherTotal=(t.otherCharges||[]).reduce((s,c)=>s+(Number(c.amount)||0),0);
+    let unpaid=(bills||[]).filter(b=>b.tenantId===t.id && b.status!=="paid");
+    let pendingAmt=unpaid.reduce((s,b)=>s+(Number(b.total)||0),0);
+    let overdueCount=unpaid.filter(b=>getBillStatus(b)==="overdue").length;
+    let duesStatus = !unpaid.length ? "Up to date"
+      : overdueCount ? `Overdue (${unpaid.length} unpaid bill${unpaid.length>1?"s":""})`
+      : `Pending (${unpaid.length} unpaid bill${unpaid.length>1?"s":""})`;
+    return {
+      "Tenant ID": t.tid||t.id||"",
+      "Name": t.name||"",
+      "Property": propMap[t.propertyId]||"",
+      "Room / Unit": t.room||"",
+      "Phone": t.phone||"",
+      "Alt Phone": t.alt||"",
+      "Email": t.email||"",
+      "Address": t.address||"",
+      "ID Proof Type": t.idType||"",
+      "ID Number": t.idNum||"",
+      "Move-in Date": t.date||"",
+      "Rent Due Day": t.dueDay?`Day ${t.dueDay}`:"Per move-in date",
+      "Monthly Rent (₹)": rent,
+      "Maintenance (₹)": maint,
+      "Other Charges": other||"—",
+      "Other Charges Total (₹)": otherTotal,
+      "Total Monthly (₹)": rent+maint+otherTotal,
+      "Security Deposit (₹)": Number(t.securityDeposit)||0,
+      "Advance Balance (₹)": Number(t.advanceRentBalance!=null?t.advanceRentBalance:(t.advanceRent||0))||0,
+      "Bill Mode": t.billMode==="manual"?"Manual":"Automatic",
+      "Paid This Month": t.paid?"Yes":"No",
+      "Last Paid Date": t.lastPaidDate||"—",
+      "Dues Status": duesStatus,
+      "Pending Amount (₹)": pendingAmt,
+      "Notes": t.notes||""
+    };
+  });
+}
+
+window.exportTenantsExcel=async()=>{
+  let rows=buildActiveTenantRows();
+  if(!rows.length){ toast("No active tenants to export.","info"); return; }
+  let stamp=new Date().toISOString().split("T")[0];
+  let fname=`KiraaBook_Active_Tenants_${stamp}`;
+  toast("⏳ Preparing Excel…","info");
+  try{
+    const XLSX=await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+    let ws=XLSX.utils.json_to_sheet(rows);
+    // Column widths sized to the header text for readability
+    ws["!cols"]=Object.keys(rows[0]).map(k=>{
+      let max=k.length;
+      rows.forEach(r=>{ let v=String(r[k]??""); if(v.length>max) max=v.length; });
+      return { wch: Math.min(Math.max(max+2,10), 45) };
+    });
+    let wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Active Tenants");
+    XLSX.writeFile(wb,fname+".xlsx");
+    toast(`✅ Exported ${rows.length} tenant${rows.length>1?"s":""} to Excel`);
+    try{ await logActivity("Tenants Exported",`${rows.length} active tenants exported to Excel`,"Owner"); }catch(e){}
+  }catch(e){
+    console.error("[exportTenantsExcel] xlsx failed, falling back to CSV:",e);
+    // CSV fallback — opens directly in Excel
+    let headers=Object.keys(rows[0]);
+    let csvLine=arr=>arr.map(v=>{ let s=String(v??""); return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }).join(",");
+    let csv=[csvLine(headers),...rows.map(r=>csvLine(headers.map(h=>r[h])))].join("\r\n");
+    let blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"});
+    let url=URL.createObjectURL(blob);
+    let a=document.createElement("a"); a.href=url; a.download=fname+".csv"; a.click();
+    URL.revokeObjectURL(url);
+    toast(`✅ Exported ${rows.length} tenant${rows.length>1?"s":""} (CSV — opens in Excel)`);
+    try{ await logActivity("Tenants Exported",`${rows.length} active tenants exported to CSV`,"Owner"); }catch(e2){}
+  }
+};
+
 window.setFilter=(f,el)=>{ currentFilter=f; document.querySelectorAll("#tab-tenants .f-tab").forEach(t=>t.classList.remove("active")); el.classList.add("active"); renderTenantList(); };
 window.setBillFilter=(f,el)=>{ billFilter=f; document.querySelectorAll("#tab-allbills .f-tab").forEach(t=>t.classList.remove("active")); el.classList.add("active"); renderAllBills(); };
 
