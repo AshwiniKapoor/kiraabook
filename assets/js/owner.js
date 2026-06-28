@@ -1274,6 +1274,41 @@ function renderAllBills(){
   }).join("");
 }
 
+// ── FINANCIAL SOURCE OF TRUTH ─────────────────────────────────
+// Collected & Pending are derived from THESE helpers only, so the dashboard
+// tiles and their detail modals are computed from identical rules and can
+// never drift apart. The bill record is the single unit of money owed/received.
+
+// Effective "money received" date for a paid bill (cash-basis collection date).
+// Prefers the actual payment timestamp; falls back for legacy bills.
+function billPaidDate(b){
+  if(!b || b.status!=="paid") return null;
+  if(b.paidOnIso){ let d=new Date(b.paidOnIso); if(!isNaN(d)) return d; }
+  if(b.monthKey){ let [y,m]=String(b.monthKey).split("-").map(Number); if(y&&m) return new Date(y,m-1,15); }
+  if(b.dueDate){ let d=new Date(b.dueDate); if(!isNaN(d)) return d; }
+  return null;
+}
+
+// Approved, non-deactivated tenants — the only ones whose dues are receivable.
+function getActiveTenantIdSet(){
+  return new Set((tenants||[]).filter(t=>t.approved && t.active!==false).map(t=>t.id));
+}
+
+// PENDING = every unpaid bill belonging to an active approved tenant.
+function getPendingBills(){
+  let active=getActiveTenantIdSet();
+  return (bills||[]).filter(b=>b.status!=="paid" && b.tenantId && active.has(b.tenantId));
+}
+
+// COLLECTED = paid bills whose money was received in the given month (cash basis).
+function getCollectedBills(monthDate){
+  let m=monthDate.getMonth(), y=monthDate.getFullYear();
+  return (bills||[]).filter(b=>{
+    let d=billPaidDate(b);
+    return d && d.getMonth()===m && d.getFullYear()===y;
+  });
+}
+
 function updateOwnerStats(){
   // Active (not deactivated) approved tenants
   let activeAppr = tenants.filter(t=>t.approved && t.active!==false);
@@ -1302,38 +1337,14 @@ function updateOwnerStats(){
   if(pendApproval.length>0){ if(pSec)pSec.style.display="block"; if(pVal)pVal.textContent=pendApproval.length; }
   else { if(pSec)pSec.style.display="none"; }
 
-  // Collected this month + Pending amount
+  // Collected this month (cash basis) + Pending (all outstanding for active tenants).
+  // Both numbers come from the shared helpers, so each tile matches its detail
+  // modal exactly. A bill paid today counts toward THIS month's Collected
+  // regardless of which month it was billed for; Pending is every unpaid bill of
+  // an active tenant. No phantom/implicit rent — the bill is the source of truth.
   let now=new Date();
-  let curM=now.getMonth(), curY=now.getFullYear();
-  let curMonthKey=curY+"-"+(curM+1);
-  let collected=0, pendingAmt=0;
-
-  // Build a set of active tenant IDs so we can skip deactivated tenants (issue #8)
-  let activeTenantIds = new Set(activeAppr.map(t=>t.id));
-
-  // Track which tenants already have a bill this month (to avoid double-counting below)
-  let billedTenantIds=new Set();
-  bills.forEach(b=>{
-    let amt=Number(b.total||0);
-    // Collected = bills FOR this month that are paid (issue #4: use monthKey not payment date)
-    if(b.status==="paid" && normMK(b.monthKey)===normMK(curMonthKey)){
-      collected += amt;
-    }
-    // Pending = unpaid bills, but only for active approved tenants (issue #8)
-    if(b.status!=="paid"){
-      if(b.tenantId && activeTenantIds.has(b.tenantId)) pendingAmt += amt;
-    }
-    // Track every tenant who has a bill this month (normalize monthKey)
-    if(normMK(b.monthKey)===normMK(curMonthKey) && b.tenantId) billedTenantIds.add(b.tenantId);
-  });
-
-  // Approved active tenants with NO bill this month → rent is implicitly pending
-  // (covers newly added tenants and tenants added after autoCreateMonthlyBills ran)
-  activeAppr.forEach(t=>{
-    if(!billedTenantIds.has(t.id) && Number(t.rent)>0){
-      pendingAmt += Number(t.rent);
-    }
-  });
+  let collected=getCollectedBills(now).reduce((s,b)=>s+Number(b.total||0),0);
+  let pendingAmt=getPendingBills().reduce((s,b)=>s+Number(b.total||0),0);
 
   let sc=document.getElementById("s-col"); if(sc) sc.textContent=fmtMoney(collected);
   let sp=document.getElementById("s-pend"); if(sp) sp.textContent=fmtMoney(pendingAmt);
@@ -1488,6 +1499,10 @@ window.checkTrialStatus    = checkTrialStatus;
 window.isOverdue           = isOverdue;
 window.getBillStatus       = getBillStatus;
 window.getDaysText         = getDaysText;
+window.billPaidDate        = billPaidDate;
+window.getPendingBills     = getPendingBills;
+window.getCollectedBills   = getCollectedBills;
+window.getActiveTenantIdSet= getActiveTenantIdSet;
 window.updateOwnerStats    = updateOwnerStats;
 window.renderTenantList    = renderTenantList;
 window.renderAllBills      = renderAllBills;

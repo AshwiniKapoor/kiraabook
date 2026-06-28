@@ -800,16 +800,8 @@ window.kbReset=()=>{
 // ── ITEM 4: Collected / Pending detail modals ────────────────
 window.openCollectedModal=()=>{
   let now=new Date();
-  let curM=now.getMonth(), curY=now.getFullYear();
-  let paid=bills.filter(b=>{
-    if(b.status!=="paid") return false;
-    let pd=null;
-    if(b.paidOnIso){ try{ pd=new Date(b.paidOnIso); }catch(e){} }
-    if((!pd||isNaN(pd)) && b.monthKey){ let [y,m]=b.monthKey.split("-").map(Number); if(y&&m) pd=new Date(y,m-1,15); }
-    if((!pd||isNaN(pd)) && b.dueDate){ pd=new Date(b.dueDate); }
-    if(!pd||isNaN(pd)) return false;
-    return pd.getMonth()===curM && pd.getFullYear()===curY;
-  });
+  // Same source of truth as the Collected tile (cash received this month)
+  let paid=(window.getCollectedBills?window.getCollectedBills(now):[]).slice();
   let total=paid.reduce((s,b)=>s+Number(b.total||0),0);
   let monthName=now.toLocaleString("default",{month:"long",year:"numeric"});
   let html=`<div style="background:var(--green-g);border:1px solid rgba(34,197,94,.25);border-radius:var(--rs);padding:12px;margin-bottom:14px;text-align:center">
@@ -837,7 +829,8 @@ window.openCollectedModal=()=>{
 };
 
 window.openPendingModal=()=>{
-  let pend=bills.filter(b=>b.status!=="paid");
+  // Same source of truth as the Pending tile (unpaid bills of active tenants)
+  let pend=(window.getPendingBills?window.getPendingBills():[]).slice();
   let total=pend.reduce((s,b)=>s+Number(b.total||0),0);
   // Group by overdue/due-soon/upcoming
   let now=new Date(); now.setHours(0,0,0,0);
