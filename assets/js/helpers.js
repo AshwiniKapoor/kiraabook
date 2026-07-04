@@ -67,6 +67,53 @@ export function esc(s) {
 }
 export function escAttr(s) { return String(s || "").replace(/'/g,"\\'").replace(/"/g,"&quot;"); }
 
+// ── PDF: reference-only watermark + legal disclaimer ─────────────────────────
+// Stamps EVERY page of a jsPDF document with a faint diagonal "REFERENCE ONLY"
+// watermark and a footer disclaimer, so nothing this app generates can be
+// mistaken for a legally binding / certified document. Call once, right before
+// pdf.save()/pdf.output(). Fails silently so a PDF still downloads if anything
+// in the stamping goes wrong.
+const PDF_NOTES = {
+  invoice:  "This is a system-generated reference invoice from KiraaBook, provided for record-keeping and informational purposes only. It is NOT a tax invoice, official payment receipt, or legally certified document, and must not be relied upon for any legal, judicial, or taxation purpose.",
+  summary:  "This is a system-generated reference summary from KiraaBook, provided for informational purposes only. It is NOT a certified financial statement, tax document, or legally binding record.",
+  agreement:"This document is a system-generated reference template produced by KiraaBook. It is NOT a legally executed, stamped, notarized, or registered agreement, and does not constitute legal advice. To be legally valid and enforceable, the parties must execute it on the appropriate stamp paper and complete any registration/attestation required by applicable local law. Please consult a qualified legal professional before relying on this document.",
+  document: "This is a system-generated reference document from KiraaBook, provided for informational purposes only. It is NOT a legally binding, certified, or notarized document and must not be used for any legal, judicial, or official purpose."
+};
+
+export function stampPdfReference(pdf, opts = {}) {
+  try {
+    const W = pdf.internal.pageSize.getWidth();
+    const H = pdf.internal.pageSize.getHeight();
+    const pages = pdf.internal.getNumberOfPages();
+    const watermark = opts.watermark || "REFERENCE ONLY";
+    const note = opts.note || PDF_NOTES[opts.type] || PDF_NOTES.document;
+    const hasGState = typeof pdf.GState === "function" && typeof pdf.setGState === "function";
+
+    for (let p = 1; p <= pages; p++) {
+      pdf.setPage(p);
+
+      // ── Diagonal watermark ──
+      if (pdf.saveGraphicsState) pdf.saveGraphicsState();
+      if (hasGState) { try { pdf.setGState(pdf.GState({ opacity: 0.12 })); } catch (e) {} }
+      pdf.setTextColor(hasGState ? 120 : 205, hasGState ? 120 : 205, hasGState ? 120 : 205);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(46);
+      pdf.text(watermark, W / 2, H / 2, { align: "center", angle: 35 });
+      pdf.setFontSize(15);
+      pdf.text("Not a legal document", W / 2, H / 2 + 13, { align: "center", angle: 35 });
+      if (pdf.restoreGraphicsState) pdf.restoreGraphicsState();
+
+      // ── Footer disclaimer (sits just above any existing generated-on footer) ──
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(115, 115, 115);
+      const lines = pdf.splitTextToSize(note, W - 24);
+      const startY = H - 16 - (lines.length - 1) * 2.6;
+      pdf.text(lines, W / 2, startY, { align: "center" });
+    }
+  } catch (e) { console.warn("[stampPdfReference]", e); }
+}
+
 // ── Photo upload ───────────────────────────────────────────────────────────────
 window.triggerFile = (fileId, dataId, prevId, selfie) => {
   const inp = document.getElementById(fileId);
