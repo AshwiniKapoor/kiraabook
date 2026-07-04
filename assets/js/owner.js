@@ -1097,6 +1097,26 @@ window.collectOldest=async(tenantId)=>{
   if(!grp || !grp.bills.length){ toast("No pending bill to collect","info"); return; }
   await window.markBillPaid(grp.bills[0].id);   // bills are sorted oldest-first
 };
+
+// KYC / verification completeness — which documents a tenant still owes.
+// Owner-added tenants start with these blank until they complete their profile.
+function kycMissItems(t){
+  let m=[];
+  if(!(t.idType && t.idNum)) m.push("ID details");
+  if(!t.idPhoto)             m.push("ID photo");
+  if(!t.pvPhoto)             m.push("Police verification");
+  return m;
+}
+
+// Nudge a tenant to complete KYC over WhatsApp
+window.requestKyc=(tenantId)=>{
+  let t=(tenants||[]).find(x=>x.id===tenantId); if(!t) return;
+  let phone=String(t.phone||"").replace(/[^0-9]/g,"");
+  if(!phone){ toast("No phone number on file for this tenant","info"); return; }
+  let miss=kycMissItems(t);
+  let msg=`Dear ${t.name}, please complete your KYC in the KiraaBook tenant portal${miss.length?` — still pending: ${miss.join(", ")}`:""}. Log in with your name & password to upload your documents. Thank you.`;
+  window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`,"_blank");
+};
 window.setBillFilter=(f,el)=>{ billFilter=f; document.querySelectorAll("#tab-allbills .f-tab").forEach(t=>t.classList.remove("active")); el.classList.add("active"); renderAllBills(); };
 
 window.switchOwnerTab=(tab,el)=>{
@@ -1231,7 +1251,7 @@ function renderTenantList(){
     let owes=owesOf(t), behind=behindOf(t);
     if(owes<=0) c.paid++;
     else { c.unpaid++; if(behind>0) c.arrears++; else c.due++; }
-    if(!t.pvPhoto) c.nopv++;
+    if(kycMissItems(t).length) c.nopv++;
   });
 
   // ── Summary strip (clickable) ──
@@ -1270,7 +1290,7 @@ function renderTenantList(){
       if(currentFilter==="unpaid"  && owesOf(t)<=0)  return false;                    // owes (summary ₹ tile)
       if(currentFilter==="due"     && !(owesOf(t)>0 && behindOf(t)<=0)) return false; // current month only
       if(currentFilter==="arrears" && behindOf(t)<=0) return false;                   // 1+ months behind
-      if(currentFilter==="nopv"    && t.pvPhoto)     return false;                    // KYC missing
+      if(currentFilter==="nopv"    && kycMissItems(t).length===0) return false;       // KYC complete
     }
     if(q){
       let blob=(t.name+" "+(t.room||"")+" "+(t.phone||"")+" "+(t.tid||"")+" "+(t.email||"")).toLowerCase();
@@ -1292,7 +1312,12 @@ function renderTenantList(){
   filt.sort(sortFns[currentSort]||sortFns.attention);
 
   if(!filt.length){
-    list.innerHTML=`<div class="empty-state"><div class="empty-icon">🏠</div><div class="empty-text">No tenants found</div></div>`;
+    let msg = currentFilter==="nopv"    ? "All tenants' KYC is complete 🎉"
+            : currentFilter==="arrears" ? "No tenant is in arrears 🎉"
+            : currentFilter==="due"     ? "No current-month dues 🎉"
+            : currentFilter==="paid"    ? "No fully-paid tenants yet"
+            : "No tenants found";
+    list.innerHTML=`<div class="empty-state"><div class="empty-icon">🏠</div><div class="empty-text">${msg}</div></div>`;
     return;
   }
 
@@ -1305,34 +1330,48 @@ function renderTenantList(){
     let grp=duesByTenant[t.id];
     let pn=propName(t.propertyId); let pTxt=pn?` · ${esc(pn)}`:"";
 
-    let mod, badge;
+    let miss=kycMissItems(t);                       // KYC docs still outstanding
+    let kycView=(currentFilter==="nopv");           // verification-focused card
+
     let pill=(bg,txt)=>`<span style="background:${bg};color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap">${txt}</span>`;
-    if(t.active===false){ mod=""; badge=`<span style="background:var(--s3);color:var(--text3);font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap">⛔ Left</span>`; }
-    else if(!t.approved){ mod="pending"; badge=pill("var(--orange)","⏳ Pending approval"); }
-    else if(behind>0){ mod="overdue"; badge=pill("var(--red)",`🔴 ${behind} month${behind>1?"s":""} behind`); }
-    else if(owes>0){ mod="unpaid"; badge=pill("var(--orange)","⚠️ Due this month"); }
-    else { mod="paid"; badge=pill("var(--green)","✓ All clear"); }
+    let mod, badge, infoLine;
 
-    let lastPaid = t.lastPaidDate ? `last paid ${fmtDate(t.lastPaidDate)}` : "no payments yet";
-    let duesLine = owes>0
-      ? `<span style="color:var(--red);font-weight:800">Owes ${fmtMoney(owes)}</span> <span style="color:var(--text3)">· ${lastPaid}</span>`
-      : `<span style="color:var(--green);font-weight:700">No dues</span> <span style="color:var(--text3)">· ${lastPaid}</span>`;
+    if(kycView){
+      // ── Verification-focused card (No KYC filter) ──
+      mod="overdue";
+      badge=pill("var(--red)","🪪 KYC incomplete");
+      infoLine=`<span style="color:var(--red);font-weight:700">Missing: ${miss.join(", ")||"—"}</span>`;
+    } else {
+      // ── Payment-focused card ──
+      if(t.active===false){ mod=""; badge=`<span style="background:var(--s3);color:var(--text3);font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap">⛔ Left</span>`; }
+      else if(!t.approved){ mod="pending"; badge=pill("var(--orange)","⏳ Pending approval"); }
+      else if(behind>0){ mod="overdue"; badge=pill("var(--red)",`🔴 ${behind} month${behind>1?"s":""} behind`); }
+      else if(owes>0){ mod="unpaid"; badge=pill("var(--orange)","⚠️ Due this month"); }
+      else { mod="paid"; badge=pill("var(--green)","✓ All clear"); }
+      let lastPaid = t.lastPaidDate ? `last paid ${fmtDate(t.lastPaidDate)}` : "no payments yet";
+      infoLine = owes>0
+        ? `<span style="color:var(--red);font-weight:800">Owes ${fmtMoney(owes)}</span> <span style="color:var(--text3)">· ${lastPaid}</span>`
+        : `<span style="color:var(--green);font-weight:700">No dues</span> <span style="color:var(--text3)">· ${lastPaid}</span>`;
+    }
 
-    // KYC / verification is a separate axis — surfaced on every card so the
-    // "No KYC" filter shows a genuinely different signal (not just dues again).
-    let kycMissing = (t.active!==false && t.approved && !t.pvPhoto);
-    let kycTag = kycMissing
+    // Small KYC tag on normal cards too, so the axis is visible everywhere
+    let kycTag = (!kycView && t.active!==false && t.approved && miss.length)
       ? `<div style="margin-top:4px"><span style="background:var(--red-g);color:var(--red);font-size:8px;font-weight:800;padding:2px 6px;border-radius:99px;white-space:nowrap">🪪 No KYC</span></div>` : "";
 
     let acts=[];
-    if(!t.approved && t.active!==false)
-      acts.push(`<button class="btn btn-approve" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();approveTenant('${t.id}')">✓ Approve</button>`);
-    if(owes>0 && t.active!==false){
-      acts.push(`<button class="btn btn-success" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();collectOldest('${t.id}')">✓ Collect</button>`);
-      if(t.phone && grp && grp.bills.length)
-        acts.push(`<button class="btn btn-warn" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();sendOneOffReminder('${grp.bills[0].id}')">💬 Remind</button>`);
+    if(kycView){
+      if(t.phone) acts.push(`<button class="btn btn-warn" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();requestKyc('${t.id}')">💬 Request docs</button>`);
+      acts.push(`<button class="btn btn-ghost" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();openTenantDetail('${t.id}','general')">👁 Details</button>`);
+    } else {
+      if(!t.approved && t.active!==false)
+        acts.push(`<button class="btn btn-approve" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();approveTenant('${t.id}')">✓ Approve</button>`);
+      if(owes>0 && t.active!==false){
+        acts.push(`<button class="btn btn-success" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();collectOldest('${t.id}')">✓ Collect</button>`);
+        if(t.phone && grp && grp.bills.length)
+          acts.push(`<button class="btn btn-warn" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();sendOneOffReminder('${grp.bills[0].id}')">💬 Remind</button>`);
+      }
+      acts.push(`<button class="btn btn-ghost" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();openTenantDetail('${t.id}','${owes>0?'bills':'general'}')">👁 Details</button>`);
     }
-    acts.push(`<button class="btn btn-ghost" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();openTenantDetail('${t.id}','${owes>0?'bills':'general'}')">👁 Details</button>`);
 
     return `<div class="t-card ${mod} t-card-clickable" style="margin-bottom:10px" onclick="openTenantDetail('${t.id}','general')">
       <div style="display:flex;align-items:center;gap:10px">
@@ -1340,7 +1379,7 @@ function renderTenantList(){
         <div class="t-info">
           <div class="t-name">${esc(t.name)}</div>
           <div style="font-size:11px;color:var(--text3);font-weight:500;margin-top:1px">Room ${esc(t.room||"–")}${pTxt} · ${fmtMoney(t.rent)}/mo</div>
-          <div style="font-size:10px;margin-top:3px">${duesLine}</div>
+          <div style="font-size:10px;margin-top:3px">${infoLine}</div>
         </div>
         <div style="flex-shrink:0;text-align:right">${badge}${kycTag}</div>
       </div>
