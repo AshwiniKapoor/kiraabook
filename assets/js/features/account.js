@@ -835,55 +835,77 @@ window.payFromPendingModal=async(billId)=>{
   setTimeout(()=>{ if(document.getElementById("pending-modal")?.classList.contains("open")) window.openPendingModal(); }, 500);
 };
 
+// Which bucket the pending modal is filtered to: "all" | "current" | "arrears"
+window._pendingFilter="all";
+window.setPendingFilter=(f)=>{ window._pendingFilter=f; window.openPendingModal(); };
+
 window.openPendingModal=()=>{
-  // Single source of truth — bifurcated into THIS MONTH vs ARREARS, grouped by tenant
+  // Single source of truth — bifurcated into THIS MONTH vs ARREARS, grouped by tenant.
+  // All three summary tiles are clickable and filter the tenant list below.
   let pb=(window.getPendingBreakdown?window.getPendingBreakdown():{overall:0,curMonth:0,arrears:0,arrearsTenants:0,tenantGroups:[]});
   let tmap={}; (tenants||[]).forEach(t=>{ tmap[t.id]=t; });
   let billCount=pb.tenantGroups.reduce((s,g)=>s+g.bills.length,0);
+  let filter=window._pendingFilter||"all";
 
-  // ── Bifurcated summary: This Month · Arrears · Total ──
-  let html=`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-    <div style="flex:1;min-width:120px;background:var(--orange-g);border:1px solid rgba(251,146,60,.3);border-radius:var(--rs);padding:10px;text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">📅 This Month</div>
-      <div style="font-size:20px;font-weight:800;color:var(--orange);margin-top:4px">${fmtMoney(pb.curMonth)}</div>
-      <div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:2px">current cycle dues</div>
-    </div>
-    <div style="flex:1;min-width:120px;background:var(--red-g);border:1px solid rgba(244,63,94,.3);border-radius:var(--rs);padding:10px;text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">⏳ Arrears</div>
-      <div style="font-size:20px;font-weight:800;color:var(--red);margin-top:4px">${fmtMoney(pb.arrears)}</div>
-      <div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:2px">${pb.arrearsTenants} tenant${pb.arrearsTenants===1?"":"s"} behind</div>
-    </div>
-    <div style="flex:1;min-width:120px;background:var(--s3);border:1px solid var(--border);border-radius:var(--rs);padding:10px;text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Σ Total Pending</div>
-      <div style="font-size:20px;font-weight:800;color:var(--text);margin-top:4px">${fmtMoney(pb.overall)}</div>
-      <div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:2px">${billCount} unpaid bill${billCount===1?"":"s"}</div>
-    </div>
-  </div>`;
+  // Effective (per-month-correct) due date + status for a bill
+  let dueOf=b=> (window.effectiveBillDue?window.effectiveBillDue(b):(b.dueDate?new Date(b.dueDate):null));
+  let statusChip=b=>{
+    let due=dueOf(b); if(!due) return "";
+    let n=new Date(); n.setHours(0,0,0,0); let d=new Date(due); d.setHours(0,0,0,0);
+    let diff=Math.round((d-n)/864e5);
+    if(diff<0) return `<span style="color:var(--red);font-weight:700">overdue ${Math.abs(diff)}d</span>`;
+    if(diff===0) return `<span style="color:var(--orange);font-weight:700">due today</span>`;
+    if(diff<=3) return `<span style="color:var(--orange);font-weight:700">due in ${diff}d</span>`;
+    return `<span style="color:var(--text3);font-weight:600">in ${diff}d</span>`;
+  };
 
-  if(!pb.tenantGroups.length){
-    html += `<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-text">All bills are paid!</div></div>`;
+  // ── Clickable bifurcated summary: This Month · Arrears · Total ──
+  let card=(id,emoji,title,amount,sub,bg,brd,col)=>{
+    let active=filter===id;
+    return `<div onclick="setPendingFilter('${id}')" title="Tap to view ${esc(title)}"
+      style="flex:1;min-width:120px;background:${bg};border:${active?"2px":"1px"} solid ${active?col:brd};border-radius:var(--rs);padding:10px;text-align:center;cursor:pointer;position:relative;box-shadow:${active?"0 0 0 3px "+bg:"none"};transition:all .12s">
+      ${active?`<div style="position:absolute;top:5px;right:7px;font-size:9px;color:${col};font-weight:800">● showing</div>`:""}
+      <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">${emoji} ${title}</div>
+      <div style="font-size:20px;font-weight:800;color:${col};margin-top:4px">${fmtMoney(amount)}</div>
+      <div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:2px">${sub}</div>
+    </div>`;
+  };
+  let html=`<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+    ${card("current","📅","This Month",pb.curMonth,"current cycle dues","var(--orange-g)","rgba(251,146,60,.3)","var(--orange)")}
+    ${card("arrears","⏳","Arrears",pb.arrears,`${pb.arrearsTenants} tenant${pb.arrearsTenants===1?"":"s"} behind`,"var(--red-g)","rgba(244,63,94,.3)","var(--red)")}
+    ${card("all","Σ","Total Pending",pb.overall,`${billCount} unpaid bill${billCount===1?"":"s"}`,"var(--s3)","var(--border)","var(--text)")}
+  </div>
+  <div style="font-size:10px;color:var(--text3);font-weight:600;text-align:center;margin-bottom:12px">👆 Tap a tile to filter · showing <strong style="color:var(--text2)">${filter==="current"?"This Month":filter==="arrears"?"Arrears (previous months)":"All pending"}</strong></div>`;
+
+  // ── Filter the tenant groups + their bills to the chosen bucket ──
+  let groups=pb.tenantGroups.map(g=>{
+    let shownBills = filter==="current" ? g.currentBills : filter==="arrears" ? g.arrearBills : g.bills;
+    return {g, shownBills};
+  }).filter(x=>x.shownBills.length);
+
+  if(!groups.length){
+    let msg = filter==="arrears" ? "No arrears — everyone is current 🎉"
+            : filter==="current" ? "No dues for the current month 🎉"
+            : "All bills are paid! 🎉";
+    html += `<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-text">${msg}</div></div>`;
   } else {
-    // ── Per-tenant groups, worst-arrears first ──
-    html += pb.tenantGroups.map(g=>{
+    html += groups.map(({g,shownBills})=>{
       let t=tmap[g.tenantId];
       let room=t?.room?` · Room ${esc(t.room)}`:"";
       let inArrears=g.arrearsCount>0;
       let accent=inArrears?"var(--red)":"var(--orange)";
+      let shownTotal=shownBills.reduce((s,b)=>s+Number(b.total||0),0);
       let badge=inArrears
         ? `<span style="background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px">🔴 ${g.arrearsCount} month${g.arrearsCount===1?"":"s"} behind</span>`
         : `<span style="background:var(--orange);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px">⏰ This month</span>`;
-      let waBtn = t?.phone ? `<button class="btn btn-warn" style="font-size:10px;padding:4px 8px" onclick="sendOneOffReminder('${g.bills[0].id}')">💬 Remind</button>`:"";
+      let waBtn = t?.phone ? `<button class="btn btn-warn" style="font-size:10px;padding:4px 8px" onclick="sendOneOffReminder('${shownBills[0].id}')">💬 Remind</button>`:"";
 
-      // each unpaid month for this tenant
-      let rows=g.bills.map(b=>{
-        let s=(window.getBillStatus?window.getBillStatus(b):"");
-        let sLbl = s==="overdue"?`<span style="color:var(--red);font-weight:700">overdue</span>`
-                 : s==="due"?`<span style="color:var(--orange);font-weight:700">due soon</span>`
-                 : `<span style="color:var(--text3);font-weight:600">upcoming</span>`;
+      let rows=shownBills.map(b=>{
+        let due=dueOf(b);
         return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)">
           <div style="min-width:0">
             <div style="font-weight:700;font-size:12px">${esc(b.monthLabel||"–")}</div>
-            <div style="font-size:9px;color:var(--text3);font-weight:500;margin-top:1px">Due ${fmtDate(b.dueDate)} · ${sLbl}</div>
+            <div style="font-size:9px;color:var(--text3);font-weight:500;margin-top:1px">Due ${due?fmtDate(due):"–"} · ${statusChip(b)}</div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             <div style="font-weight:800;font-size:13px">${fmtMoney(b.total)}</div>
@@ -899,9 +921,9 @@ window.openPendingModal=()=>{
             <div style="margin-top:4px">${badge}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:9px;color:var(--text3);font-weight:600">total owed</div>
-            <div style="font-weight:800;font-size:16px;color:${accent}">${fmtMoney(g.total)}</div>
-            ${inArrears?`<div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:1px">arrears ${fmtMoney(g.arrearsAmt)} + this mo ${fmtMoney(g.currentAmt)}</div>`:""}
+            <div style="font-size:9px;color:var(--text3);font-weight:600">${filter==="all"?"total owed":"shown"}</div>
+            <div style="font-weight:800;font-size:16px;color:${accent}">${fmtMoney(filter==="all"?g.total:shownTotal)}</div>
+            ${(filter==="all"&&inArrears)?`<div style="font-size:9px;color:var(--text3);font-weight:600;margin-top:1px">arrears ${fmtMoney(g.arrearsAmt)} + this mo ${fmtMoney(g.currentAmt)}</div>`:""}
           </div>
         </div>
         ${rows}
