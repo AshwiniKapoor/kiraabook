@@ -77,6 +77,7 @@ function refreshBillsForOwner(ownerID){
   try{ updateOwnerStats(); }catch(e){}
   try{ renderRemindersSection(); }catch(e){}
   try{ renderAllBills(); }catch(e){}
+  try{ renderTenantList(); }catch(e){}   // cards show bill-based dues → refresh on bill changes
 }
 
 // ── TRIAL STATUS / LIMITS ────────────────────────────────────
@@ -1085,13 +1086,24 @@ window.exportTenantsExcel=async()=>{
   }
 };
 
-window.setFilter=(f,el)=>{ currentFilter=f; document.querySelectorAll("#tab-tenants .f-tab").forEach(t=>t.classList.remove("active")); el.classList.add("active"); renderTenantList(); };
+let currentSort="attention";
+window.setFilter=(f)=>{ currentFilter=f; renderTenantList(); };
+window.setSort  =(s)=>{ currentSort=s; renderTenantList(); };
+
+// Settle a tenant's OLDEST unpaid bill (arrears-first) straight from the list
+window.collectOldest=async(tenantId)=>{
+  let pb = window.getPendingBreakdown ? window.getPendingBreakdown() : {tenantGroups:[]};
+  let grp = (pb.tenantGroups||[]).find(x=>x.tenantId===tenantId);
+  if(!grp || !grp.bills.length){ toast("No pending bill to collect","info"); return; }
+  await window.markBillPaid(grp.bills[0].id);   // bills are sorted oldest-first
+};
 window.setBillFilter=(f,el)=>{ billFilter=f; document.querySelectorAll("#tab-allbills .f-tab").forEach(t=>t.classList.remove("active")); el.classList.add("active"); renderAllBills(); };
 
 window.switchOwnerTab=(tab,el)=>{
   document.querySelectorAll(".t-tab").forEach(t=>t.classList.remove("active")); el.classList.add("active");
   ["tenants","add-tenant","billing","allbills","rooms","roomhist","account","properties","maintenance"].forEach(t=>{ let e2=document.getElementById("tab-"+t); if(e2)e2.style.display=tab===t?"block":"none"; });
   try{
+    if(tab==="tenants") renderTenantList();
     if(tab==="allbills") renderAllBills();
     if(tab==="billing") populateTenantSelect();
     if(tab==="rooms") renderRooms();
@@ -1193,24 +1205,69 @@ window.goToPaymentLink = (plan)=>{
   try{ logActivity("Plan Upgrade Initiated", `Plan: ${plan}`, currentOwnerData?.name||"Owner"); }catch(e){}
 };
 
-// ── RENDER TENANT LIST ────────────────────────────────────────
+// ── RENDER TENANT LIST (operations cockpit) ───────────────────
 function renderTenantList(){
-  let q=g("search").toLowerCase();
-  let list=document.getElementById("tenant-list"); if(!list)return;
+  let list=document.getElementById("tenant-list"); if(!list) return;
+  let q=(g("search")||"").toLowerCase();
+
+  // Dues come from the single source of truth (bill-based), so this tab always
+  // agrees with the dashboard Pending tile.
+  let pb = window.getPendingBreakdown ? window.getPendingBreakdown() : {overall:0,tenantGroups:[]};
+  let duesByTenant={}; (pb.tenantGroups||[]).forEach(gr=>{ duesByTenant[gr.tenantId]=gr; });
+  let owesOf   = t=> duesByTenant[t.id] ? duesByTenant[t.id].total : 0;
+  let behindOf = t=> duesByTenant[t.id] ? duesByTenant[t.id].arrearsCount : 0;
+
+  let activeAppr = tenants.filter(t=>t.approved && t.active!==false);
+
+  // ── Portfolio counts (for the summary strip + chip badges) ──
+  let c={ all:activeAppr.length,
+          pending: tenants.filter(t=>!t.approved && t.active!==false).length,
+          unpaid:0, paid:0, overdue:0, arrears:0, nopv:0,
+          deactivated: tenants.filter(t=>t.active===false).length };
+  activeAppr.forEach(t=>{
+    if(owesOf(t)>0) c.unpaid++; else c.paid++;
+    if(behindOf(t)>0) c.arrears++;
+    if(isOverdue(t)) c.overdue++;
+    if(!t.pvPhoto) c.nopv++;
+  });
+
+  // ── Summary strip (clickable) ──
+  let sEl=document.getElementById("tenants-summary");
+  if(sEl){
+    let tile=(val,lbl,filter,col)=>`<div class="mtile" style="border-left:3px solid ${col}" onclick="setFilter('${filter}')"><div class="mtile-val">${val}</div><div class="mtile-lbl">${lbl}</div></div>`;
+    sEl.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${tile(c.all,"👥 Active","all","var(--blue)")}
+      ${tile(c.arrears,"🔴 In arrears","arrears","var(--red)")}
+      ${tile(fmtMoney(pb.overall||0),"💸 Pending","unpaid","var(--orange)")}
+      ${tile(c.pending,"⏳ To approve","pending","var(--gold)")}
+    </div>`;
+  }
+
+  // ── Filter chips (with counts) + sort control ──
+  let ctrlEl=document.getElementById("tenants-controls");
+  if(ctrlEl){
+    let chips=[["all","All",c.all],["pending","⏳ Approve",c.pending],["arrears","🔴 Arrears",c.arrears],
+      ["overdue","⚠️ Overdue",c.overdue],["unpaid","Unpaid",c.unpaid],["paid","Paid",c.paid],
+      ["nopv","No KYC",c.nopv],["deactivated","⛔ Left",c.deactivated]];
+    let chipHtml=chips.map(([f,lbl,n])=>`<div class="f-tab ${currentFilter===f?'active':''}" onclick="setFilter('${f}')">${lbl}<span style="opacity:.6;margin-left:3px">${n}</span></div>`).join("");
+    let sorts=[["attention","Needs attention"],["dues","Owes most"],["behind","Most months behind"],["name","Name A–Z"],["room","Room"],["recent","Newest first"]];
+    let sortHtml=`<div style="display:flex;align-items:center;gap:6px;margin:2px 0 12px"><span style="font-size:10px;color:var(--text3);font-weight:600">Sort</span><select class="mt-sort" onchange="setSort(this.value)">${sorts.map(([v,l])=>`<option value="${v}" ${currentSort===v?'selected':''}>${l}</option>`).join("")}</select></div>`;
+    ctrlEl.innerHTML=`<div class="filter-bar">${chipHtml}</div>${sortHtml}`;
+  }
+
+  // ── Filter ──
   let filt=tenants.filter(t=>{
-    let isDeact = t.active===false;
-    // Deactivated filter: show ONLY deactivated; all other filters exclude deactivated
-    if(currentFilter==="deactivated"){
-      if(!isDeact) return false;
-    } else {
+    let isDeact=t.active===false;
+    if(currentFilter==="deactivated"){ if(!isDeact) return false; }
+    else {
       if(isDeact) return false;
-      if(currentFilter==="paid" && !t.paid) return false;
-      if(currentFilter==="unpaid" && t.paid) return false;
-      if(currentFilter==="pending" && t.approved) return false;
-      if(currentFilter!=="pending" && currentFilter!=="all" && !t.approved) return false;
-      if(currentFilter==="all" && !t.approved) return false;
-      if(currentFilter==="nopv" && t.pvPhoto) return false;
+      if(currentFilter==="pending"){ if(t.approved) return false; }
+      else if(!t.approved) return false;
+      if(currentFilter==="paid"    && owesOf(t)>0)  return false;
+      if(currentFilter==="unpaid"  && owesOf(t)<=0) return false;
+      if(currentFilter==="arrears" && behindOf(t)<=0) return false;
       if(currentFilter==="overdue" && !isOverdue(t)) return false;
+      if(currentFilter==="nopv"    && t.pvPhoto)    return false;
     }
     if(q){
       let blob=(t.name+" "+(t.room||"")+" "+(t.phone||"")+" "+(t.tid||"")+" "+(t.email||"")).toLowerCase();
@@ -1218,29 +1275,68 @@ function renderTenantList(){
     }
     return true;
   });
+
+  // ── Sort ──
+  let att=t=> behindOf(t)*1e9 + (isOverdue(t)?1e8:0) + owesOf(t);
+  let sortFns={
+    attention:(a,b)=> att(b)-att(a) || (a.name||"").localeCompare(b.name||""),
+    dues:(a,b)=> owesOf(b)-owesOf(a) || (a.name||"").localeCompare(b.name||""),
+    behind:(a,b)=> behindOf(b)-behindOf(a) || owesOf(b)-owesOf(a),
+    name:(a,b)=> (a.name||"").localeCompare(b.name||""),
+    room:(a,b)=> String(a.room||"").localeCompare(String(b.room||""),undefined,{numeric:true}),
+    recent:(a,b)=> new Date(b.date||0)-new Date(a.date||0),
+  };
+  filt.sort(sortFns[currentSort]||sortFns.attention);
+
   if(!filt.length){
     list.innerHTML=`<div class="empty-state"><div class="empty-icon">🏠</div><div class="empty-text">No tenants found</div></div>`;
     return;
   }
+
+  // ── Action-first cards ──
+  let propName=id=> id ? ((properties||[]).find(p=>p.id===id)?.name||"") : "";
   list.innerHTML=filt.map(t=>{
-    let ini=t.name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
-    let av=t.profPhoto?`<img src="${t.profPhoto}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit"/>`:ini;
-    let status,sCls;
-    if(t.active===false){ status="⛔ Deactivated"; sCls="stat-overdue"; }
-    else if(!t.approved){ status="⏳ Pending Approval"; sCls="stat-pending"; }
-    else if(isOverdue(t)){ status=`🔴 Overdue (${Math.floor((new Date()-(t.lastPaidDate?new Date(t.lastPaidDate):new Date(t.date||Date.now())))/864e5)}d)`; sCls="stat-overdue"; }
-    else if(t.paid){ status="✓ Paid This Month"; sCls="stat-paid"; }
-    else { status="⚠️ Unpaid"; sCls="stat-unpaid"; }
-    return `<li class="tenant-card">
-      <div class="t-avatar">${av}</div>
-      <div class="t-info">
-        <div class="t-name">${esc(t.name)}</div>
-        <div class="t-meta">Room ${esc(t.room||"–")} · ${fmtMoney(t.rent)}</div>
-        <div style="font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:2px">${esc(t.tid||t.id)}</div>
-        <span class="t-status ${sCls}">${status}</span>
+    let ini=(t.name||"?").split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
+    let av=t.profPhoto?`<img src="${t.profPhoto}"/>`:ini;
+    let owes=owesOf(t), behind=behindOf(t);
+    let grp=duesByTenant[t.id];
+    let pn=propName(t.propertyId); let pTxt=pn?` · ${esc(pn)}`:"";
+
+    let mod, badge;
+    let pill=(bg,txt)=>`<span style="background:${bg};color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap">${txt}</span>`;
+    if(t.active===false){ mod=""; badge=`<span style="background:var(--s3);color:var(--text3);font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap">⛔ Left</span>`; }
+    else if(!t.approved){ mod="pending"; badge=pill("var(--orange)","⏳ Pending approval"); }
+    else if(behind>0){ mod="overdue"; badge=pill("var(--red)",`🔴 ${behind} month${behind>1?"s":""} behind`); }
+    else if(owes>0){ mod="unpaid"; badge=pill("var(--orange)","⚠️ Due this month"); }
+    else { mod="paid"; badge=pill("var(--green)","✓ All clear"); }
+
+    let lastPaid = t.lastPaidDate ? `last paid ${fmtDate(t.lastPaidDate)}` : "no payments yet";
+    let duesLine = owes>0
+      ? `<span style="color:var(--red);font-weight:800">Owes ${fmtMoney(owes)}</span> <span style="color:var(--text3)">· ${lastPaid}</span>`
+      : `<span style="color:var(--green);font-weight:700">No dues</span> <span style="color:var(--text3)">· ${lastPaid}</span>`;
+
+    let acts=[];
+    if(!t.approved && t.active!==false)
+      acts.push(`<button class="btn btn-approve" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();approveTenant('${t.id}')">✓ Approve</button>`);
+    if(owes>0 && t.active!==false){
+      acts.push(`<button class="btn btn-success" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();collectOldest('${t.id}')">✓ Collect</button>`);
+      if(t.phone && grp && grp.bills.length)
+        acts.push(`<button class="btn btn-warn" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();sendOneOffReminder('${grp.bills[0].id}')">💬 Remind</button>`);
+    }
+    acts.push(`<button class="btn btn-ghost" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();openTenantDetail('${t.id}','${owes>0?'bills':'general'}')">👁 Details</button>`);
+
+    return `<div class="t-card ${mod} t-card-clickable" style="margin-bottom:10px" onclick="openTenantDetail('${t.id}','general')">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="t-avatar">${av}</div>
+        <div class="t-info">
+          <div class="t-name">${esc(t.name)}</div>
+          <div style="font-size:11px;color:var(--text3);font-weight:500;margin-top:1px">Room ${esc(t.room||"–")}${pTxt} · ${fmtMoney(t.rent)}/mo</div>
+          <div style="font-size:10px;margin-top:3px">${duesLine}</div>
+        </div>
+        <div style="flex-shrink:0">${badge}</div>
       </div>
-      <button class="btn btn-primary" style="font-size:11px;padding:8px 14px;align-self:center;white-space:nowrap" onclick="event.stopPropagation();openTenantDetail('${t.id}','${(currentFilter==='unpaid'||currentFilter==='overdue')?'bills':'general'}')">👁 View Details</button>
-    </li>`;
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px">${acts.join("")}</div>
+    </div>`;
   }).join("");
 }
 
@@ -1543,14 +1639,7 @@ async function renderPendingApprovalsBanner(){
 
 window.jumpToOwnerTabAndFilter = (tabKey, filterKey)=>{
   if(typeof window.jumpToOwnerTab==="function") window.jumpToOwnerTab(tabKey);
-  // After tab switch, click the filter chip
-  setTimeout(()=>{
-    let btns = document.querySelectorAll(".f-tab");
-    for(let b of btns){
-      let inline = b.getAttribute("onclick")||"";
-      if(inline.includes(`'${filterKey}'`)){ b.click(); break; }
-    }
-  }, 200);
+  setTimeout(()=>{ if(typeof window.setFilter==="function") window.setFilter(filterKey); }, 200);
 };
 
 window.scrollToVacateNotices = ()=>{
