@@ -495,16 +495,9 @@
     <!-- TAB: TENANTS -->
     <div id="tab-tenants" style="display:none">
       <div class="search-wrap"><span class="search-ico">🔍</span><input id="search" placeholder="Search by name, room, phone, or tenant ID (KB…)..." oninput="renderTenantList()"/></div>
-      <div class="filter-bar">
-        <div class="f-tab active" onclick="setFilter('all',this)">All</div>
-        <div class="f-tab" onclick="setFilter('pending',this)">⏳ Pending</div>
-        <div class="f-tab" onclick="setFilter('unpaid',this)">Unpaid</div>
-        <div class="f-tab" onclick="setFilter('paid',this)">Paid</div>
-        <div class="f-tab" onclick="setFilter('nopv',this)">⚠️ No Verification</div>
-        <div class="f-tab" onclick="setFilter('overdue',this)">🔴 Overdue</div>
-        <div class="f-tab" onclick="setFilter('deactivated',this)">⛔ Deactivated</div>
-      </div>
-      <ul id="tenant-list"></ul>
+      <div id="tenants-summary"></div>
+      <div id="tenants-controls"></div>
+      <div id="tenant-list"></div>
     </div>
 
     <!-- TAB: ADD TENANT -->

@@ -179,6 +179,13 @@ input.field-error, textarea.field-error, select.field-error { border: 2px solid 
 .overdue-flag  { background: linear-gradient(135deg, rgba(244,63,94,.06), var(--s1)); }
 .overdue-alert { background: var(--red-g); border: 1px solid rgba(244,63,94,.25); border-radius: var(--rs); padding: 7px 10px; margin-bottom: 8px; font-size: 11px; font-weight: 700; color: var(--red); display: flex; align-items: center; gap: 6px; }
 
+/* ── MANAGE TENANTS COCKPIT ── */
+.mtile      { flex: 1; min-width: 76px; cursor: pointer; background: var(--s2); border: 1px solid var(--border); border-radius: var(--rs); padding: 8px 10px; transition: all .15s; }
+.mtile:hover{ border-color: var(--blue); transform: translateY(-1px); }
+.mtile-val  { font-size: 17px; font-weight: 800; color: var(--text); letter-spacing: -.3px; }
+.mtile-lbl  { font-size: 9px; color: var(--text3); font-weight: 600; margin-top: 2px; }
+.mt-sort    { background: var(--s2); border: 1px solid var(--border); border-radius: var(--rs); color: var(--text); font-family: 'Sora', sans-serif; font-size: 11px; font-weight: 600; padding: 5px 8px; cursor: pointer; }
+
 /* ── BILLING ── */
 .bill-item-row { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; margin-bottom: 7px; }
 .bill-item-row input { margin-top: 0; }
