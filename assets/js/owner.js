@@ -396,10 +396,11 @@ function renderRemindersSection(){
   let reminders=[];
   bills.forEach(b=>{
     if(b.status==="paid") return;
-    if(!b.dueDate) return;
     let t=tenants.find(x=>x.id===b.tenantId);
     if(!t||!t.phone) return;
-    let due=new Date(b.dueDate);
+    if(t.active===false || !t.approved) return;   // skip vacated/unapproved tenants
+    let due=effectiveBillDue(b);                    // per-month correct due date
+    if(!due) return;
     let diff=daysBetween(now,due);
     let lastRem=b.lastReminded?new Date(b.lastReminded):null;
     let hoursSinceLast=lastRem?(now-lastRem)/(1000*60*60):9999;
@@ -1319,6 +1320,23 @@ function currentMonthIdx(){ let n=new Date(); return n.getFullYear()*12+n.getMon
 // A bill is "arrears" if its billing month is strictly before the current month.
 function isArrearBill(b){ let i=monthKeyIndex(b.monthKey); return i!=null && i<currentMonthIdx(); }
 
+// The correct due date for a bill, derived from its OWN billing month (via the
+// tenant's due-day / move-in cycle). This makes multi-month arrears show
+// distinct, correct overdue counts even if a bill was saved by an older code
+// path with a stale or duplicated dueDate. Falls back to the stored dueDate.
+function effectiveBillDue(b){
+  let idx=monthKeyIndex(b.monthKey);
+  if(idx!=null){
+    let t=(tenants||[]).find(x=>x.id===b.tenantId);
+    if(t){
+      let d=calcBillDueForMonth(t, new Date(Math.floor(idx/12), idx%12, 1));
+      if(d && !isNaN(d)) return d;
+    }
+  }
+  if(b.dueDate){ let d=new Date(b.dueDate); if(!isNaN(d)) return d; }
+  return null;
+}
+
 // Bifurcates pending into THIS-MONTH vs ARREARS (previous months), grouped by
 // tenant and sorted worst-first, so the owner can see who is 2/3 months behind.
 function getPendingBreakdown(){
@@ -1329,12 +1347,13 @@ function getPendingBreakdown(){
   pend.forEach(b=>{
     let amt=Number(b.total||0);
     let i=monthKeyIndex(b.monthKey);
-    if(i!=null && i<c) arrears+=amt; else curMonth+=amt; // unknown/future → treat as current
+    let isArr = (i!=null && i<c);
+    if(isArr) arrears+=amt; else curMonth+=amt; // unknown/future → treat as current
     let id=b.tenantId||"?";
-    let g=(groups[id]=groups[id]||{tenantId:id, name:b.tenantName||"–", bills:[], total:0, arrearsCount:0, arrearsAmt:0, currentAmt:0});
+    let g=(groups[id]=groups[id]||{tenantId:id, name:b.tenantName||"–", bills:[], arrearBills:[], currentBills:[], total:0, arrearsCount:0, arrearsAmt:0, currentAmt:0});
     g.bills.push(b);
     g.total+=amt;
-    if(i!=null && i<c){ g.arrearsCount++; g.arrearsAmt+=amt; } else g.currentAmt+=amt;
+    if(isArr){ g.arrearsCount++; g.arrearsAmt+=amt; g.arrearBills.push(b); } else { g.currentAmt+=amt; g.currentBills.push(b); }
   });
   let tenantGroups=Object.values(groups);
   tenantGroups.forEach(g=>g.bills.sort((a,b)=>(monthKeyIndex(a.monthKey)??0)-(monthKeyIndex(b.monthKey)??0)));
@@ -1398,9 +1417,10 @@ function updateOwnerStats(){
 
   // Make Collected/Pending tiles clickable (item 4)
   if(sc){ sc.style.cursor="pointer"; sc.title="Click to see collected bills this month"; sc.onclick=()=>openCollectedModal(); }
-  if(sp){ sp.style.cursor="pointer"; sp.title="Click to see pending bills"; sp.onclick=()=>openPendingModal(); }
+  let openPend=()=>{ window._pendingFilter="all"; openPendingModal(); };  // always open showing everything
+  if(sp){ sp.style.cursor="pointer"; sp.title="Click to see pending bills"; sp.onclick=openPend; }
   let scParent=sc?.closest(".stat-card"); if(scParent){ scParent.style.cursor="pointer"; scParent.onclick=()=>openCollectedModal(); }
-  let spParent=sp?.closest(".stat-card"); if(spParent){ spParent.style.cursor="pointer"; spParent.onclick=()=>openPendingModal(); }
+  let spParent=sp?.closest(".stat-card"); if(spParent){ spParent.style.cursor="pointer"; spParent.onclick=openPend; }
 
   // Rooms vacant count — v13 fix: use properties[].rooms[] (room data lives inside properties now)
   // Build per-property occupancy AND total counts so vacant = sum across all properties
@@ -1550,6 +1570,7 @@ window.billPaidDate        = billPaidDate;
 window.getPendingBills     = getPendingBills;
 window.getPendingBreakdown = getPendingBreakdown;
 window.getCollectedBills   = getCollectedBills;
+window.effectiveBillDue    = effectiveBillDue;
 window.getActiveTenantIdSet= getActiveTenantIdSet;
 window.updateOwnerStats    = updateOwnerStats;
 window.renderTenantList    = renderTenantList;
