@@ -1220,14 +1220,17 @@ function renderTenantList(){
   let activeAppr = tenants.filter(t=>t.approved && t.active!==false);
 
   // ── Portfolio counts (for the summary strip + chip badges) ──
+  // Payment status is a clean PARTITION so filters never overlap:
+  //   paid (owes 0) · due (owes, current month only) · arrears (1+ prev months)
+  // KYC is a separate axis (verification), independent of what's owed.
   let c={ all:activeAppr.length,
           pending: tenants.filter(t=>!t.approved && t.active!==false).length,
-          unpaid:0, paid:0, overdue:0, arrears:0, nopv:0,
+          due:0, arrears:0, paid:0, unpaid:0, nopv:0,
           deactivated: tenants.filter(t=>t.active===false).length };
   activeAppr.forEach(t=>{
-    if(owesOf(t)>0) c.unpaid++; else c.paid++;
-    if(behindOf(t)>0) c.arrears++;
-    if(isOverdue(t)) c.overdue++;
+    let owes=owesOf(t), behind=behindOf(t);
+    if(owes<=0) c.paid++;
+    else { c.unpaid++; if(behind>0) c.arrears++; else c.due++; }
     if(!t.pvPhoto) c.nopv++;
   });
 
@@ -1246,9 +1249,9 @@ function renderTenantList(){
   // ── Filter chips (with counts) + sort control ──
   let ctrlEl=document.getElementById("tenants-controls");
   if(ctrlEl){
-    let chips=[["all","All",c.all],["pending","⏳ Approve",c.pending],["arrears","🔴 Arrears",c.arrears],
-      ["overdue","⚠️ Overdue",c.overdue],["unpaid","Unpaid",c.unpaid],["paid","Paid",c.paid],
-      ["nopv","No KYC",c.nopv],["deactivated","⛔ Left",c.deactivated]];
+    let chips=[["all","All",c.all],["pending","⏳ Approve",c.pending],
+      ["due","📅 This month",c.due],["arrears","🔴 Arrears",c.arrears],["paid","✓ Paid",c.paid],
+      ["nopv","🪪 No KYC",c.nopv],["deactivated","⛔ Left",c.deactivated]];
     let chipHtml=chips.map(([f,lbl,n])=>`<div class="f-tab ${currentFilter===f?'active':''}" onclick="setFilter('${f}')">${lbl}<span style="opacity:.6;margin-left:3px">${n}</span></div>`).join("");
     let sorts=[["attention","Needs attention"],["dues","Owes most"],["behind","Most months behind"],["name","Name A–Z"],["room","Room"],["recent","Newest first"]];
     let sortHtml=`<div style="display:flex;align-items:center;gap:6px;margin:2px 0 12px"><span style="font-size:10px;color:var(--text3);font-weight:600">Sort</span><select class="mt-sort" onchange="setSort(this.value)">${sorts.map(([v,l])=>`<option value="${v}" ${currentSort===v?'selected':''}>${l}</option>`).join("")}</select></div>`;
@@ -1263,11 +1266,11 @@ function renderTenantList(){
       if(isDeact) return false;
       if(currentFilter==="pending"){ if(t.approved) return false; }
       else if(!t.approved) return false;
-      if(currentFilter==="paid"    && owesOf(t)>0)  return false;
-      if(currentFilter==="unpaid"  && owesOf(t)<=0) return false;
-      if(currentFilter==="arrears" && behindOf(t)<=0) return false;
-      if(currentFilter==="overdue" && !isOverdue(t)) return false;
-      if(currentFilter==="nopv"    && t.pvPhoto)    return false;
+      if(currentFilter==="paid"    && owesOf(t)>0)   return false;                    // nothing owed
+      if(currentFilter==="unpaid"  && owesOf(t)<=0)  return false;                    // owes (summary ₹ tile)
+      if(currentFilter==="due"     && !(owesOf(t)>0 && behindOf(t)<=0)) return false; // current month only
+      if(currentFilter==="arrears" && behindOf(t)<=0) return false;                   // 1+ months behind
+      if(currentFilter==="nopv"    && t.pvPhoto)     return false;                    // KYC missing
     }
     if(q){
       let blob=(t.name+" "+(t.room||"")+" "+(t.phone||"")+" "+(t.tid||"")+" "+(t.email||"")).toLowerCase();
@@ -1315,6 +1318,12 @@ function renderTenantList(){
       ? `<span style="color:var(--red);font-weight:800">Owes ${fmtMoney(owes)}</span> <span style="color:var(--text3)">· ${lastPaid}</span>`
       : `<span style="color:var(--green);font-weight:700">No dues</span> <span style="color:var(--text3)">· ${lastPaid}</span>`;
 
+    // KYC / verification is a separate axis — surfaced on every card so the
+    // "No KYC" filter shows a genuinely different signal (not just dues again).
+    let kycMissing = (t.active!==false && t.approved && !t.pvPhoto);
+    let kycTag = kycMissing
+      ? `<div style="margin-top:4px"><span style="background:var(--red-g);color:var(--red);font-size:8px;font-weight:800;padding:2px 6px;border-radius:99px;white-space:nowrap">🪪 No KYC</span></div>` : "";
+
     let acts=[];
     if(!t.approved && t.active!==false)
       acts.push(`<button class="btn btn-approve" style="font-size:10px;padding:5px 10px" onclick="event.stopPropagation();approveTenant('${t.id}')">✓ Approve</button>`);
@@ -1333,7 +1342,7 @@ function renderTenantList(){
           <div style="font-size:11px;color:var(--text3);font-weight:500;margin-top:1px">Room ${esc(t.room||"–")}${pTxt} · ${fmtMoney(t.rent)}/mo</div>
           <div style="font-size:10px;margin-top:3px">${duesLine}</div>
         </div>
-        <div style="flex-shrink:0">${badge}</div>
+        <div style="flex-shrink:0;text-align:right">${badge}${kycTag}</div>
       </div>
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px">${acts.join("")}</div>
     </div>`;
