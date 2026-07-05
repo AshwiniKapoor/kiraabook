@@ -76,6 +76,7 @@ function refreshBillsForOwner(ownerID){
   });
   try{ updateOwnerStats(); }catch(e){}
   try{ renderRemindersSection(); }catch(e){}
+  try{ renderManualBillingReminder(); }catch(e){}
   try{ renderAllBills(); }catch(e){}
   try{ renderTenantList(); }catch(e){}   // cards show bill-based dues → refresh on bill changes
 }
@@ -201,6 +202,7 @@ async function initOwner(){
     try{ renderFormerTenants(); }catch(e){}
     renderOverdueAlerts(); renderVacantNotices();
     renderTenantLimitWarn(); renderRemindersSection();
+    try{ renderManualBillingReminder(); }catch(e){}
     // Keep Properties & Rooms tab in sync — tenant occupancy affects room status there
     try{ window.renderProperties && window.renderProperties(); }catch(e){}
     // v11 fix: re-filter bills against my tenants list when it changes
@@ -1095,6 +1097,84 @@ window.createBill=async()=>{
   await logActivity("Bill Created",`Tenant: ${tName}, Amount: ${fmtMoney(total)}`,"Owner");
   let billsTab=document.querySelectorAll(".t-tab")[3]; if(billsTab) billsTab.click();
 };
+
+// ── MANUAL BILLING REMINDER ───────────────────────────────────
+// Auto-billing tenants are handled by the scheduler; MANUAL tenants need the
+// owner to create each month's bill. This surfaces manual tenants who have no
+// bill yet for the current month, so nothing slips through.
+function getManualPendingTenants(){
+  let now=new Date(), mKey=now.getFullYear()+"-"+(now.getMonth()+1), curIdx=currentMonthIdx();
+  return (tenants||[]).filter(t=>{
+    if(t.billMode!=="manual") return false;
+    if(!t.approved || t.active===false) return false;
+    let mi=t.date?new Date(t.date):now;                       // not started yet (future move-in)?
+    if(mi.getFullYear()*12+mi.getMonth() > curIdx) return false;
+    if((bills||[]).some(b=>b.tenantId===t.id && normMK(b.monthKey)===normMK(mKey))) return false;  // already billed
+    return true;
+  });
+}
+async function _genManualBill(t){
+  let now=new Date(), mKey=now.getFullYear()+"-"+(now.getMonth()+1);
+  if((bills||[]).some(b=>b.tenantId===t.id && normMK(b.monthKey)===normMK(mKey))) return null;
+  let items=buildBillItems(t); if(!items.length) return null;
+  let total=items.reduce((s,i)=>s+Number(i.amount),0);
+  let due=calcBillDueForMonth(t, new Date(now.getFullYear(), now.getMonth(), 1));
+  let mLabel=now.toLocaleString("default",{month:"long",year:"numeric"});
+  let ownerID=localStorage.getItem("kb_owner_id");
+  await fbAdd("bills",{tenantId:t.id,tenantName:t.name,tenantPhone:t.phone||"",ownerID,monthKey:mKey,monthLabel:mLabel,dueDate:due.toISOString().split("T")[0],items,total,status:"pending",createdOn:now.toLocaleDateString("en-IN"),lastReminded:null});
+  try{ await fbUpdate("tenants",t.id,{newBillAlert:{month:mLabel,total,dueDate:due.toISOString().split("T")[0],createdOn:now.toISOString()}}); }catch(e){}
+  return total;
+}
+function renderManualBillingReminder(){
+  let sec=document.getElementById("manual-billing-section"), list=document.getElementById("manual-billing-list");
+  if(!sec||!list) return;
+  let pend=getManualPendingTenants();
+  if(!pend.length){ sec.style.display="none"; return; }
+  let mLabel=new Date().toLocaleString("default",{month:"long",year:"numeric"});
+  let subEl=document.getElementById("manual-billing-sub");
+  if(subEl) subEl.textContent=`No bill created yet for ${mLabel} — ${pend.length} manual-billing tenant${pend.length>1?"s":""}.`;
+  sec.style.display="block";
+  list.innerHTML=pend.map(t=>{
+    let total=buildBillItems(t).reduce((s,i)=>s+Number(i.amount),0);
+    let amtTxt = total>0 ? `standard bill ${fmtMoney(total)}` : "no preset amount";
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:9px 11px;margin-bottom:7px">
+      <div style="min-width:0">
+        <div style="font-weight:700;font-size:12px">${esc(t.name)} · Room ${esc(t.room||"–")}</div>
+        <div style="font-size:10px;color:var(--text3);font-weight:500;margin-top:1px">${amtTxt}</div>
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        ${total>0?`<button class="btn btn-success" style="font-size:10px;padding:5px 10px" onclick="createManualBillFor('${t.id}')">⚡ Generate</button>`:""}
+        <button class="btn btn-ghost" style="font-size:10px;padding:5px 10px" onclick="goCreateBillFor('${t.id}')">✏️ Customize</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+window.renderManualBillingReminder=renderManualBillingReminder;
+window.createManualBillFor=async(tid)=>{
+  let t=(tenants||[]).find(x=>x.id===tid); if(!t){ toast("Tenant not found","error"); return; }
+  if(!buildBillItems(t).length){ toast("No rent/charges set — use Customize to enter amounts","info"); return goCreateBillFor(tid); }
+  let total=await _genManualBill(t);
+  if(total==null){ toast("Bill for this month already exists","info"); renderManualBillingReminder(); return; }
+  toast(`✅ ${fmtMoney(total)} bill created for ${t.name}`);
+  await logActivity("Manual Bill Created",`Tenant: ${t.name}, Amount: ${fmtMoney(total)}`,"Owner");
+  renderManualBillingReminder();
+};
+window.createAllManualBills=async()=>{
+  let pend=getManualPendingTenants().filter(t=>buildBillItems(t).length);
+  if(!pend.length){ toast("Set rent/charges on these tenants, or use Customize","info"); return; }
+  if(!confirm(`Generate this month's standard bill for ${pend.length} manual-billing tenant(s)?`)) return;
+  let n=0,sum=0;
+  for(let t of pend){ let tot=await _genManualBill(t); if(tot!=null){ n++; sum+=tot; } }
+  toast(`✅ Generated ${n} bill${n>1?"s":""} · ${fmtMoney(sum)}`);
+  await logActivity("Manual Bills Generated (bulk)",`${n} bills, total ${fmtMoney(sum)}`,"Owner");
+  renderManualBillingReminder();
+};
+window.goCreateBillFor=(tid)=>{
+  let billTab=Array.from(document.querySelectorAll(".t-tab")).find(b=>b.textContent.includes("Create Bill"));
+  if(billTab) billTab.click();
+  setTimeout(()=>{ let sel=document.getElementById("bill-tenant-sel"); if(sel){ sel.value=tid; if(typeof sel.onchange==="function") sel.onchange(); } }, 200);
+};
+
 window.markBillPaid=async(id)=>{
   let now=new Date();
   await fbUpdate("bills",id,{
