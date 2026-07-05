@@ -1,6 +1,6 @@
 import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, PAY_LINKS, collection, onSnapshot, serverTimestamp } from './firebase.js';
 import { state } from './state.js';
-import { g, sv, show, toast, fmtDate, fmtMoney, genUID, esc, escAttr, daysBetween, closeModal } from './helpers.js';
+import { g, sv, show, toast, fmtDate, fmtMoney, genUID, esc, escAttr, daysBetween, closeModal, unitNoun } from './helpers.js';
 
 // Normalize monthKey to "YYYY-M" (no leading zero) so "2026-06" and "2026-6" compare equal
 function normMK(mk){ if(!mk) return ""; let [y,m]=mk.split("-"); return y+"-"+parseInt(m,10); }
@@ -1589,7 +1589,8 @@ function updateOwnerStats(){
       id:p.id, name:p.name||"Untitled",
       occupied:occupiedSet.size,
       vacant:vacantHere,
-      total:totalSet.size
+      total:totalSet.size,
+      unit:unitNoun(p.type||"other").many   // Flats / Beds / Units / …
     });
   });
   // Tenants without a property (no propertyId): treat each unique tenant.room as occupied of an "Unassigned" bucket
@@ -1610,17 +1611,25 @@ function updateOwnerStats(){
         id:"_unassigned", name:"(No property)",
         occupied:occupiedSet.size,
         vacant:vacantHere,
-        total:unassignedRoomSet.size
+        total:unassignedRoomSet.size,
+        unit:"Units"
       });
     }
   }
-  // Write totals to the dashboard tile
+  // Write totals to the dashboard tile. Label adapts to the property type(s):
+  // a single type → its plural noun ("Flats/Beds Vacant"); mixed → generic "Units".
   let sv=document.getElementById("s-vacant"); if(sv) sv.textContent=totalVacant;
   let svSub=document.getElementById("s-vacant-sub"); if(svSub) svSub.textContent = `of ${totalRoomsCount} total`;
+  let svLbl=document.getElementById("s-vacant-lbl");
+  if(svLbl){
+    let allTypes=new Set((properties||[]).map(p=>p.type||"other"));
+    let many = allTypes.size===1 ? unitNoun([...allTypes][0]).many : "Units";
+    svLbl.textContent = `${many} Vacant`;
+  }
   // Make the Vacant tile clickable to show per-property breakdown
   if(sv){
     sv.style.cursor="pointer";
-    sv.title = "Click to see vacant rooms per property";
+    sv.title = "Click to see vacant units per property";
     sv.onclick = ()=>openVacancyBreakdownModal(perPropertyBreakdown);
   }
   let svParent = sv?.closest(".stat-card");

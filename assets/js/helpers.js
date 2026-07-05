@@ -67,6 +67,21 @@ export function esc(s) {
 }
 export function escAttr(s) { return String(s || "").replace(/'/g,"\\'").replace(/"/g,"&quot;"); }
 
+// ── Rentable-unit noun per property type ─────────────────────────────────────
+// So the UI says "Flats / Beds / Units / Rooms Vacant" instead of always "Rooms",
+// which is wrong for apartments, PGs, commercial spaces, etc.
+export function unitNoun(type) {
+  switch (type) {
+    case "apartment":  return { one: "Flat",  many: "Flats"  };
+    case "villa":      return { one: "Villa", many: "Villas" };
+    case "pg":         return { one: "Bed",   many: "Beds"   };
+    case "commercial": return { one: "Unit",  many: "Units"  };
+    case "bnb":        return { one: "Room",  many: "Rooms"  };
+    case "house":      return { one: "Unit",  many: "Units"  };
+    default:           return { one: "Unit",  many: "Units"  };
+  }
+}
+
 // ── PDF: reference-only watermark + legal disclaimer ─────────────────────────
 // Stamps EVERY page of a jsPDF document with a faint diagonal "REFERENCE ONLY"
 // watermark and a footer disclaimer, so nothing this app generates can be

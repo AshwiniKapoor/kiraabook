@@ -83,7 +83,7 @@ window.openVacancyBreakdownModal = (breakdown)=>{
   let html = `<div style="background:var(--gold-g);border:1px solid rgba(245,166,35,.3);border-radius:var(--rs);padding:12px;margin-bottom:14px;text-align:center">
     <div style="font-size:11px;color:var(--text3);font-weight:600;margin-bottom:4px">Total Across All Properties</div>
     <div style="font-size:26px;font-weight:800;color:var(--gold)">${totalV}</div>
-    <div style="font-size:11px;color:var(--text3);font-weight:600;margin-top:4px">vacant out of ${totalR} room${totalR===1?"":"s"}</div>
+    <div style="font-size:11px;color:var(--text3);font-weight:600;margin-top:4px">vacant out of ${totalR} unit${totalR===1?"":"s"}</div>
   </div>`;
   if(!data.length){
     html += `<div class="empty-state"><div class="empty-icon">🏘️</div><div class="empty-text">No properties added yet</div><div style="font-size:11px;color:var(--text3);margin-top:6px">Add properties in the Properties &amp; Rooms tab to track vacancy.</div></div>`;
@@ -95,7 +95,7 @@ window.openVacancyBreakdownModal = (breakdown)=>{
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div>
             <div style="font-weight:700;font-size:13px">${esc(p.name)}</div>
-            <div style="font-size:10px;color:var(--text3);font-weight:500;margin-top:2px">${p.occupied} occupied · ${p.vacant} vacant · ${p.total} total</div>
+            <div style="font-size:10px;color:var(--text3);font-weight:500;margin-top:2px">${p.occupied} occupied · ${p.vacant} vacant · ${p.total} ${(p.unit||"Units").toLowerCase()}</div>
           </div>
           <div style="text-align:right">
             <div style="font-size:22px;font-weight:800;color:${barColor}">${p.vacant}</div>
@@ -169,12 +169,12 @@ const FAQ_DATA = [
     tags:"bill payment invoice rent monthly"
   },
   {
-    q: "How does vacant room tracking work?",
-    a: `<p>The <strong>Rooms Vacant</strong> tile on your dashboard shows the total vacant rooms across all properties.</p>
-      <p><strong>Calculation:</strong> for each property, vacant = (total rooms in that property) − (rooms occupied by active tenants).</p>
-      <p>Tap the Rooms Vacant tile to see a per-property breakdown showing how many rooms are vacant in each property, with an occupancy percentage bar.</p>
-      <p>If a tenant is deactivated, their room becomes vacant automatically.</p>`,
-    tags:"vacant rooms occupancy empty available"
+    q: "How does vacant unit tracking work?",
+    a: `<p>The <strong>Vacant Units</strong> tile on your dashboard shows the total vacant units across all properties. The label adapts to your property type — it reads "Flats", "Beds", "Rooms" or "Units" depending on what you selected when adding the property.</p>
+      <p><strong>Calculation:</strong> for each property, vacant = (total units in that property) − (units occupied by active tenants).</p>
+      <p>Tap the tile to see a per-property breakdown showing how many units are vacant in each property, with an occupancy percentage bar.</p>
+      <p>If a tenant is deactivated, their unit becomes vacant automatically.</p>`,
+    tags:"vacant units rooms flats beds occupancy empty available"
   },
   {
     q: "How do I manage maintenance requests?",
