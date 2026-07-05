@@ -485,6 +485,7 @@
       <button class="t-tab active" onclick="switchOwnerTab('properties',this)">🏘️ Properties &amp; Rooms</button>
       <button class="t-tab" onclick="switchOwnerTab('add-tenant',this)">➕ Add Tenant</button>
       <button class="t-tab" onclick="switchOwnerTab('tenants',this)">🏠 Manage Tenants</button>
+      <button class="t-tab" onclick="switchOwnerTab('former',this)">🚪 Former Tenants</button>
       <button class="t-tab" onclick="switchOwnerTab('billing',this)">📄 Create Bill</button>
       <button class="t-tab" onclick="switchOwnerTab('allbills',this)">📋 All Bills</button>
       <button class="t-tab" onclick="switchOwnerTab('roomhist',this)">📜 Room History</button>
@@ -735,6 +736,17 @@
         <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500">Complete history of who stayed in each room. Auto-tracked when tenants are added, change rooms, or vacate.</div>
         <input id="rh-search" placeholder="🔍 Search by room or tenant name" oninput="renderRoomHistory()" style="margin-bottom:10px"/>
         <div id="room-history-list"></div>
+      </div>
+    </div>
+
+    <!-- TAB: FORMER TENANTS -->
+    <div id="tab-former" style="display:none">
+      <div class="panel">
+        <div class="panel-title"><div class="panel-dot"></div>Former Tenants</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500">Tenants who have moved out. Their bills are removed from active Pending/Collected. Star rating reflects payment conduct; blacklist anyone you would not rent to again, and add a private note for your records.</div>
+        <input id="former-search" placeholder="🔍 Search former tenants by name, room or phone" oninput="renderFormerTenants()" style="margin-bottom:10px"/>
+        <div id="former-summary"></div>
+        <div id="former-list"></div>
       </div>
     </div>
 
@@ -1544,6 +1556,38 @@
       <button class="btn btn-ghost" onclick="closeModal('pending-modal')" style="padding:5px 10px">✕ Close</button>
     </div>
     <div id="pending-modal-content"></div>
+  </div>
+</div>
+
+<!-- MARK TENANT AS LEFT MODAL -->
+<div class="modal-overlay" id="left-modal">
+  <div class="modal-box" style="text-align:left">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:16px;font-weight:800;color:var(--text)">🚪 Mark Tenant as Left</div>
+      <button class="btn btn-ghost" onclick="closeModal('left-modal')" style="padding:5px 10px">✕</button>
+    </div>
+    <div style="font-size:14px;font-weight:800" id="left-tenant-name">—</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Their rent bills will be moved out of active Pending/Collected once marked left. This record is kept in the Former Tenants tab.</div>
+
+    <label>Move-out date</label>
+    <input id="left-date" type="date"/>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px;margin:10px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:6px"><span style="color:var(--text3);font-weight:600">Payment conduct (auto)</span><span id="left-auto-rating"></span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px"><span style="color:var(--text3);font-weight:600">Outstanding at exit</span><span id="left-outstanding"></span></div>
+    </div>
+
+    <label>Your rating <span style="font-size:9px;color:var(--text3)">(tap stars — overrides the auto rating)</span></label>
+    <div id="left-rating-stars" style="margin:4px 0 12px"></div>
+
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;margin-bottom:12px">
+      <input type="checkbox" id="left-blacklist" style="width:auto;margin:0"/> ⛔ Blacklist — warn me if they try to return
+    </label>
+
+    <label>Private note <span style="font-size:9px;color:var(--text3)">(for your records only)</span></label>
+    <textarea id="left-note" rows="3" placeholder="e.g. Reliable tenant, always paid on time. / Left with dues, damaged bathroom — deposit adjusted." style="resize:none"></textarea>
+
+    <button class="btn btn-danger" style="width:100%;margin-top:12px" onclick="confirmTenantLeft()">🚪 Confirm — Move to Former Tenants</button>
   </div>
 </div>
 
