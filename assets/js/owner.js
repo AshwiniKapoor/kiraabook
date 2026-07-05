@@ -198,6 +198,7 @@ async function initOwner(){
       t.ownerID===ownerID || t.ownerID===ownerDocId
     );
     renderTenantList(); updateOwnerStats(); populateTenantSelect();
+    try{ renderFormerTenants(); }catch(e){}
     renderOverdueAlerts(); renderVacantNotices();
     renderTenantLimitWarn(); renderRemindersSection();
     // Keep Properties & Rooms tab in sync — tenant occupancy affects room status there
@@ -551,7 +552,136 @@ window.reactivateTenant=async(id,name)=>{
   toast(`▶ ${name} reactivated`);
   await logActivity("Tenant Reactivated",`Name: ${name}`,"Owner");
 };
-window.markPaid=async(id,rent)=>{
+
+// ── TENANT OFFBOARDING (LEFT / FORMER TENANTS) ────────────────
+function renderStars(n){ n=Math.max(0,Math.min(5,Math.round(n||0))); return "★".repeat(n)+"☆".repeat(5-n); }
+
+// Auto payment-conduct rating from the tenant's bill history (1–5; 0 = no data)
+function computeTenantRating(t){
+  let mine=(bills||[]).filter(b=>b.tenantId===t.id);
+  if(!mine.length) return {stars:0,onTime:0,late:0,unpaidCount:0,outstanding:0,hasData:false};
+  let onTime=0, late=0;
+  mine.filter(b=>b.status==="paid").forEach(b=>{
+    let due=b.dueDate?new Date(b.dueDate):null, paid=b.paidOnIso?new Date(b.paidOnIso):null;
+    if(due&&paid){ if(paid.getTime() <= due.getTime()+3*864e5) onTime++; else late++; } else onTime++;
+  });
+  let unpaid=mine.filter(b=>b.status!=="paid");
+  let outstanding=unpaid.reduce((s,b)=>s+Number(b.total||0),0);
+  let totalPaid=onTime+late;
+  let score=(totalPaid?onTime/totalPaid:1)*5;
+  if(unpaid.length) score -= Math.min(2.5, 0.5+unpaid.length*0.6);   // penalty for leaving dues
+  return {stars:Math.max(1,Math.min(5,Math.round(score))), onTime, late, unpaidCount:unpaid.length, outstanding, hasData:true};
+}
+function tenantOutstanding(t){
+  return (bills||[]).filter(b=>b.tenantId===t.id && b.status!=="paid").reduce((s,b)=>s+Number(b.total||0),0);
+}
+
+let _leftRating=0;
+window.openLeftModal=async(id)=>{
+  let t=(tenants||[]).find(x=>x.id===id) || await fbGetDoc("tenants",id);
+  if(!t){ toast("Tenant not found","error"); return; }
+  window._leftTenantId=id;
+  let auto=computeTenantRating(t), outstanding=tenantOutstanding(t);
+  _leftRating = t.ownerRating || auto.stars || 0;
+  sv("left-date", t.leftOn || new Date().toISOString().split("T")[0]);
+  sv("left-note", t.exitNote||"");
+  let bl=document.getElementById("left-blacklist"); if(bl) bl.checked=!!t.blacklisted;
+  document.getElementById("left-tenant-name").textContent=t.name||"—";
+  document.getElementById("left-auto-rating").innerHTML = auto.hasData
+    ? `<span style="color:var(--gold)">${renderStars(auto.stars)}</span> <span style="color:var(--text3);font-size:9px">${auto.onTime} on-time · ${auto.late} late${auto.unpaidCount?` · ${auto.unpaidCount} unpaid`:""}</span>`
+    : `<span style="color:var(--text3)">No payment history</span>`;
+  document.getElementById("left-outstanding").innerHTML = outstanding>0
+    ? `<span style="color:var(--red);font-weight:800">${fmtMoney(outstanding)} pending</span>`
+    : `<span style="color:var(--green);font-weight:700">No dues 🎉</span>`;
+  renderLeftStars();
+  closeModal("tenant-detail-modal");
+  document.getElementById("left-modal").classList.add("open");
+};
+window.setLeftRating=(n)=>{ _leftRating=n; renderLeftStars(); };
+function renderLeftStars(){
+  let el=document.getElementById("left-rating-stars"); if(!el) return;
+  el.innerHTML=[1,2,3,4,5].map(i=>`<span onclick="setLeftRating(${i})" style="cursor:pointer;font-size:26px;line-height:1;color:${i<=_leftRating?'var(--gold)':'var(--border2)'}">★</span>`).join("");
+}
+window.confirmTenantLeft=async()=>{
+  let id=window._leftTenantId; if(!id){ return; }
+  let t=(tenants||[]).find(x=>x.id===id) || await fbGetDoc("tenants",id);
+  let leftOn=g("left-date")||new Date().toISOString().split("T")[0];
+  let note=g("left-note");
+  let blacklisted=!!(document.getElementById("left-blacklist")?.checked);
+  let outstanding=tenantOutstanding(t), auto=computeTenantRating(t);
+  await fbUpdate("tenants",id,{
+    active:false, approved:false,
+    leftOn, exitNote:note, blacklisted,
+    ownerRating: _leftRating||auto.stars||0,
+    exitAutoRating: auto.stars||0,
+    exitOutstanding: outstanding
+  });
+  try{ if(t && t.ownerID) await closeRoomHistoryEntry(id, t.ownerID, "Tenant left"); }catch(e){}
+  await logActivity("Tenant Marked as Left",`Name: ${t.name}, Rating: ${_leftRating||auto.stars}, Blacklisted: ${blacklisted}, Outstanding: ${fmtMoney(outstanding)}`,"Owner");
+  closeModal("left-modal");
+  toast(`🚪 ${t.name} moved to Former Tenants`);
+  try{ renderFormerTenants(); }catch(e){}
+};
+window.toggleBlacklist=async(id,val)=>{
+  let on = (val===true||val==="true");
+  await fbUpdate("tenants",id,{blacklisted:on});
+  toast(on?"⛔ Tenant blacklisted":"✓ Removed from blacklist");
+  await logActivity(on?"Tenant Blacklisted":"Tenant Un-blacklisted",`ID: ${id}`,"Owner");
+  try{ renderFormerTenants(); }catch(e){}
+};
+
+function renderFormerTenants(){
+  let list=document.getElementById("former-list"); if(!list) return;
+  let q=(g("former-search")||"").toLowerCase();
+  let former=(tenants||[]).filter(t=>t.active===false);
+  if(q) former=former.filter(t=>((t.name||"")+" "+(t.room||"")+" "+(t.phone||"")).toLowerCase().includes(q));
+  former.sort((a,b)=> new Date(b.leftOn||b.submittedOn||0)-new Date(a.leftOn||a.submittedOn||0));
+
+  let sEl=document.getElementById("former-summary");
+  if(sEl){
+    let blk=former.filter(t=>t.blacklisted).length;
+    let owed=former.reduce((s,t)=>s+(t.exitOutstanding!=null?Number(t.exitOutstanding):tenantOutstanding(t)),0);
+    sEl.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="mtile" style="border-left:3px solid var(--text3)"><div class="mtile-val">${former.length}</div><div class="mtile-lbl">🚪 Former tenants</div></div>
+      <div class="mtile" style="border-left:3px solid var(--red)"><div class="mtile-val">${blk}</div><div class="mtile-lbl">⛔ Blacklisted</div></div>
+      <div class="mtile" style="border-left:3px solid var(--orange)"><div class="mtile-val">${fmtMoney(owed)}</div><div class="mtile-lbl">💸 Unrecovered dues</div></div>
+    </div>`;
+  }
+  if(!former.length){ list.innerHTML=`<div class="empty-state"><div class="empty-icon">🚪</div><div class="empty-text">No former tenants yet</div></div>`; return; }
+
+  list.innerHTML=former.map(t=>{
+    let rating = t.ownerRating || t.exitAutoRating || computeTenantRating(t).stars || 0;
+    let outstanding = (t.exitOutstanding!=null ? Number(t.exitOutstanding) : tenantOutstanding(t));
+    let left = t.leftOn?fmtDate(t.leftOn):"—";
+    let ini=(t.name||"?").split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
+    let av=t.profPhoto?`<img src="${t.profPhoto}"/>`:ini;
+    let blBadge = t.blacklisted?`<span style="background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap">⛔ Blacklisted</span>`:"";
+    let dueBadge = outstanding>0
+      ? `<span style="background:var(--orange);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap">${fmtMoney(outstanding)} unpaid</span>`
+      : `<span style="background:var(--green);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap">✓ Cleared</span>`;
+    return `<div class="t-card ${t.blacklisted?'overdue':''}" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="t-avatar">${av}</div>
+        <div class="t-info">
+          <div class="t-name">${esc(t.name)}</div>
+          <div style="font-size:11px;color:var(--text3);font-weight:500;margin-top:1px">Room ${esc(t.room||"–")} · left ${left}</div>
+          ${rating>0
+            ? `<div style="font-size:14px;color:var(--gold);margin-top:2px;letter-spacing:1px" title="Payment conduct rating">${renderStars(rating)}</div>`
+            : `<div style="font-size:10px;color:var(--text3);margin-top:2px">Not rated</div>`}
+        </div>
+        <div style="flex-shrink:0;text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end">${dueBadge}${blBadge}</div>
+      </div>
+      ${t.exitNote?`<div style="font-size:11px;color:var(--text2);background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:7px 9px;margin-top:8px">📝 ${esc(t.exitNote)}</div>`:""}
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:9px">
+        <button class="btn btn-ghost" style="font-size:10px;padding:5px 10px" onclick="openLeftModal('${t.id}')">✏️ Edit exit info</button>
+        <button class="btn ${t.blacklisted?'btn-success':'btn-danger'}" style="font-size:10px;padding:5px 10px" onclick="toggleBlacklist('${t.id}',${t.blacklisted?'false':'true'})">${t.blacklisted?'✓ Un-blacklist':'⛔ Blacklist'}</button>
+        <button class="btn btn-success" style="font-size:10px;padding:5px 10px" onclick="reactivateTenant('${t.id}','${escAttr(t.name)}')">▶ Re-activate</button>
+        <button class="btn btn-warn" style="font-size:10px;padding:5px 10px" onclick="openTenantDetail('${t.id}','general')">👁 Details</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+window.renderFormerTenants=renderFormerTenants;
   let now=new Date();
   let t=tenants.find(x=>x.id===id);
   let hist=(t?.history||[]);
@@ -726,7 +856,7 @@ window.openTenantDetail=(id, mode="general")=>{
     ${t.approved&&!t.paid?`<button class="btn btn-success" onclick="markPaid('${id}','${t.rent}');closeModal('tenant-detail-modal')">✓ Mark Paid</button>`:""}
     ${t.approved&&t.paid?`<button class="btn btn-undo" onclick="markUnpaid('${id}');closeModal('tenant-detail-modal')">↩ Unpaid</button>`:""}
     ${wa?`<a class="btn btn-warn" href="${wa}" target="_blank">💬 WhatsApp</a>`:""}
-    ${activeFlag ? `<button class="btn btn-warn" onclick="deactivateTenant('${id}','${escAttr(t.name)}');closeModal('tenant-detail-modal')">⏸ Deactivate</button>` : `<button class="btn btn-success" onclick="reactivateTenant('${id}','${escAttr(t.name)}');closeModal('tenant-detail-modal')">▶ Reactivate</button>`}
+    ${activeFlag ? `<button class="btn btn-warn" onclick="openLeftModal('${id}')">🚪 Mark as Left</button>` : `<button class="btn btn-success" onclick="reactivateTenant('${id}','${escAttr(t.name)}');closeModal('tenant-detail-modal')">▶ Reactivate</button>`}
     <button class="btn btn-danger" onclick="deleteTenant('${id}','${escAttr(t.name)}');closeModal('tenant-detail-modal')">🗑 Delete</button>
   `;
   document.getElementById("tenant-detail-modal").classList.add("open");
@@ -738,6 +868,13 @@ window.ownerAddTenant=async()=>{
   let name=g("ot-name"), room=g("ot-room"), rent=g("ot-rent");
   if(!name||!room||!rent){ toast("Fill name, room and rent.","error"); return; }
   let phone=g("ot-phone");
+  // Warn if this person was previously blacklisted (match by phone digits or name)
+  let phoneDigits=(phone||"").replace(/[^0-9]/g,"");
+  let prior=(tenants||[]).find(x=>x.active===false && x.blacklisted && (
+    (phoneDigits && String(x.phone||"").replace(/[^0-9]/g,"")===phoneDigits) ||
+    (x.name||"").trim().toLowerCase()===name.trim().toLowerCase()
+  ));
+  if(prior && !confirm(`⚠️ BLACKLISTED TENANT\n\n"${prior.name}" was previously blacklisted${prior.exitNote?`:\n\n"${prior.exitNote}"`:"."}\n\nDo you still want to add them?`)) return;
   // Default password: phone number's last 6 digits (or "kiraabook" if no phone)
   let defaultPass=phone ? phone.replace(/[^0-9]/g,"").slice(-6).padStart(6,"0") : "kiraabook";
   let ownerID=localStorage.getItem("kb_owner_id")||"";
@@ -1121,9 +1258,10 @@ window.setBillFilter=(f,el)=>{ billFilter=f; document.querySelectorAll("#tab-all
 
 window.switchOwnerTab=(tab,el)=>{
   document.querySelectorAll(".t-tab").forEach(t=>t.classList.remove("active")); el.classList.add("active");
-  ["tenants","add-tenant","billing","allbills","rooms","roomhist","account","properties","maintenance"].forEach(t=>{ let e2=document.getElementById("tab-"+t); if(e2)e2.style.display=tab===t?"block":"none"; });
+  ["tenants","add-tenant","billing","allbills","rooms","roomhist","account","properties","maintenance","former"].forEach(t=>{ let e2=document.getElementById("tab-"+t); if(e2)e2.style.display=tab===t?"block":"none"; });
   try{
     if(tab==="tenants") renderTenantList();
+    if(tab==="former") renderFormerTenants();
     if(tab==="allbills") renderAllBills();
     if(tab==="billing") populateTenantSelect();
     if(tab==="rooms") renderRooms();
@@ -1271,7 +1409,7 @@ function renderTenantList(){
   if(ctrlEl){
     let chips=[["all","All",c.all],["pending","⏳ Approve",c.pending],
       ["due","📅 This month",c.due],["arrears","🔴 Arrears",c.arrears],["paid","✓ Paid",c.paid],
-      ["nopv","🪪 No KYC",c.nopv],["deactivated","⛔ Left",c.deactivated]];
+      ["nopv","🪪 No KYC",c.nopv]];   // former/left tenants now live in their own tab
     let chipHtml=chips.map(([f,lbl,n])=>`<div class="f-tab ${currentFilter===f?'active':''}" onclick="setFilter('${f}')">${lbl}<span style="opacity:.6;margin-left:3px">${n}</span></div>`).join("");
     let sorts=[["attention","Needs attention"],["dues","Owes most"],["behind","Most months behind"],["name","Name A–Z"],["room","Room"],["recent","Newest first"]];
     let sortHtml=`<div style="display:flex;align-items:center;gap:6px;margin:2px 0 12px"><span style="font-size:10px;color:var(--text3);font-weight:600">Sort</span><select class="mt-sort" onchange="setSort(this.value)">${sorts.map(([v,l])=>`<option value="${v}" ${currentSort===v?'selected':''}>${l}</option>`).join("")}</select></div>`;
