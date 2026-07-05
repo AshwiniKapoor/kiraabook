@@ -565,7 +565,7 @@ function computeTenantRating(t){
     let due=b.dueDate?new Date(b.dueDate):null, paid=b.paidOnIso?new Date(b.paidOnIso):null;
     if(due&&paid){ if(paid.getTime() <= due.getTime()+3*864e5) onTime++; else late++; } else onTime++;
   });
-  let unpaid=mine.filter(b=>b.status!=="paid");
+  let unpaid=mine.filter(b=>b.status!=="paid" && b.status!=="writtenoff");
   let outstanding=unpaid.reduce((s,b)=>s+Number(b.total||0),0);
   let totalPaid=onTime+late;
   let score=(totalPaid?onTime/totalPaid:1)*5;
@@ -573,8 +573,26 @@ function computeTenantRating(t){
   return {stars:Math.max(1,Math.min(5,Math.round(score))), onTime, late, unpaidCount:unpaid.length, outstanding, hasData:true};
 }
 function tenantOutstanding(t){
-  return (bills||[]).filter(b=>b.tenantId===t.id && b.status!=="paid").reduce((s,b)=>s+Number(b.total||0),0);
+  return (bills||[]).filter(b=>b.tenantId===t.id && b.status!=="paid" && b.status!=="writtenoff").reduce((s,b)=>s+Number(b.total||0),0);
 }
+
+// Write off a former tenant's remaining dues (e.g. unrecoverable). Marks their
+// unpaid bills "writtenoff" so they stop counting as unrecovered, without
+// inflating Collected (no payment date is set).
+window.writeOffDues=async(id)=>{
+  let t=(tenants||[]).find(x=>x.id===id) || await fbGetDoc("tenants",id);
+  if(!t){ toast("Tenant not found","error"); return; }
+  let unpaid=(bills||[]).filter(b=>b.tenantId===id && b.status!=="paid" && b.status!=="writtenoff");
+  let amt=unpaid.reduce((s,b)=>s+Number(b.total||0),0);
+  if(!unpaid.length){ toast("No outstanding dues to write off","info"); return; }
+  if(!confirm(`Write off ${fmtMoney(amt)} in unpaid dues for ${t.name}?\n\nThis marks ${unpaid.length} bill(s) as written off (not collected). It cannot be undone easily.`)) return;
+  let nowIso=new Date().toISOString();
+  for(let b of unpaid){ try{ await fbUpdate("bills",b.id,{status:"writtenoff", writtenOffOn:nowIso}); }catch(e){} }
+  try{ await fbUpdate("tenants",id,{exitOutstanding:0}); }catch(e){}
+  await logActivity("Dues Written Off",`Name: ${t.name}, Amount: ${fmtMoney(amt)}, Bills: ${unpaid.length}`,"Owner");
+  toast(`✍️ Wrote off ${fmtMoney(amt)} for ${t.name}`);
+  try{ renderFormerTenants(); }catch(e){}
+};
 
 let _leftRating=0;
 window.openLeftModal=async(id)=>{
@@ -675,6 +693,7 @@ function renderFormerTenants(){
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:9px">
         <button class="btn btn-ghost" style="font-size:10px;padding:5px 10px" onclick="openLeftModal('${t.id}')">✏️ Edit exit info</button>
         <button class="btn ${t.blacklisted?'btn-success':'btn-danger'}" style="font-size:10px;padding:5px 10px" onclick="toggleBlacklist('${t.id}',${t.blacklisted?'false':'true'})">${t.blacklisted?'✓ Un-blacklist':'⛔ Blacklist'}</button>
+        ${outstanding>0?`<button class="btn btn-warn" style="font-size:10px;padding:5px 10px" onclick="writeOffDues('${t.id}')">✍️ Write off dues</button>`:""}
         <button class="btn btn-success" style="font-size:10px;padding:5px 10px" onclick="reactivateTenant('${t.id}','${escAttr(t.name)}')">▶ Re-activate</button>
         <button class="btn btn-warn" style="font-size:10px;padding:5px 10px" onclick="openTenantDetail('${t.id}','general')">👁 Details</button>
       </div>
@@ -1582,7 +1601,7 @@ function getActiveTenantIdSet(){
 // PENDING = every unpaid bill belonging to an active approved tenant.
 function getPendingBills(){
   let active=getActiveTenantIdSet();
-  return (bills||[]).filter(b=>b.status!=="paid" && b.tenantId && active.has(b.tenantId));
+  return (bills||[]).filter(b=>b.status!=="paid" && b.status!=="writtenoff" && b.tenantId && active.has(b.tenantId));
 }
 
 // COLLECTED = paid bills whose money was received in the given month (cash basis).
