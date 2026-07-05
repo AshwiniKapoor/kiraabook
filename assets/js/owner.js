@@ -682,6 +682,8 @@ function renderFormerTenants(){
   }).join("");
 }
 window.renderFormerTenants=renderFormerTenants;
+
+window.markPaid=async(id,rent)=>{
   let now=new Date();
   let t=tenants.find(x=>x.id===id);
   let hist=(t?.history||[]);
