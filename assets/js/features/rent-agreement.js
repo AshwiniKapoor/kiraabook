@@ -24,7 +24,7 @@ window.openRentAgreementBuilder = async(tenantId)=>{
   sv("ra-room", t.room || "");
   let typeSel = document.getElementById("ra-prop-type");
   if(typeSel){
-    let propTypeMap = {apartment:"Apartment", house:"House", villa:"Villa", pg:"PG Room", commercial:"Commercial Space", other:"Other"};
+    let propTypeMap = {apartment:"Apartment", house:"House", villa:"Villa", pg:"PG Room", commercial:"Commercial Space", bnb:"B&B / Homestay", other:"Other"};
     typeSel.value = propTypeMap[property?.type] || "Apartment";
   }
   sv("ra-rent", t.rent || "");
