@@ -1091,7 +1091,21 @@ window.updateBillPreview=()=>{
   });
   document.getElementById("bill-total-preview").textContent=fmtMoney(total);
 };
-window.createBill=async()=>{
+// Build a WhatsApp-ready billing-sheet message (uses WA *bold* markup)
+function billWhatsAppText(tName, monthLabel, items, total, dueISO){
+  let dueTxt = dueISO;
+  try{ dueTxt = new Date(dueISO).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}); }catch(e){}
+  let lines = items.map(i=>`• ${i.name} — ${fmtMoney(i.amount)}`).join("\n");
+  let owner = currentOwnerData?.name ? `\n— ${currentOwnerData.name}` : "";
+  return `🏠 *KiraaBook* — Rent Bill\n\nHi ${tName},\nHere is your bill for *${monthLabel}*:\n\n${lines}\n\n*Total Payable: ${fmtMoney(total)}*\n📅 Due date: ${dueTxt}\n\nKindly pay on or before the due date. Thank you! 🙏${owner}`;
+}
+// Normalize a stored phone to intl (default India +91) for wa.me
+function waPhone(raw){
+  let d=String(raw||"").replace(/[^0-9]/g,"");
+  if(d.length===10) d="91"+d;
+  return d;
+}
+window.createBill=async(viaWhatsApp=false)=>{
   let st=checkTrialStatus(currentOwnerData);
   if(st.expired){ toast("⛔ Trial expired. Please upgrade.","error"); return; }
   let sel=document.getElementById("bill-tenant-sel"),tid=sel.value;
@@ -1103,12 +1117,20 @@ window.createBill=async()=>{
   let items=[],total=0;
   rows.forEach(row=>{ let inp=row.querySelectorAll("input"); let nm=inp[0]?.value.trim(); let amt=parseFloat(inp[1]?.value)||0; if(nm&&amt>0){items.push({name:nm,amount:amt});total+=amt;} });
   if(!items.length){ toast("Add at least one item.","error"); return; }
+  // If sharing on WhatsApp, make sure we have a number BEFORE creating the bill
+  if(viaWhatsApp && !waPhone(tPhone)){ toast("No phone number saved for this tenant.","error"); return; }
   let d=new Date(month+"-01");
   let monthLabel=d.toLocaleString("default",{month:"long",year:"numeric"});
   let ownerID=localStorage.getItem("kb_owner_id");
   await fbAdd("bills",{tenantId:tid,tenantName:tName,tenantPhone:tPhone,ownerID,monthKey:month,monthLabel,dueDate:due,items,total,status:"pending",createdOn:new Date().toLocaleDateString("en-IN"),lastReminded:null});
-  toast(`✅ Bill ${fmtMoney(total)} created!`);
-  await logActivity("Bill Created",`Tenant: ${tName}, Amount: ${fmtMoney(total)}`,"Owner");
+  await logActivity("Bill Created",`Tenant: ${tName}, Amount: ${fmtMoney(total)}${viaWhatsApp?" (WhatsApp)":""}`,"Owner");
+  if(viaWhatsApp){
+    let url=`https://wa.me/${waPhone(tPhone)}?text=${encodeURIComponent(billWhatsAppText(tName,monthLabel,items,total,due))}`;
+    window.open(url,"_blank");
+    toast(`✅ Bill created — opening WhatsApp for ${tName}`,"info");
+  } else {
+    toast(`✅ Bill ${fmtMoney(total)} created!`);
+  }
   let billsTab=document.querySelectorAll(".t-tab")[3]; if(billsTab) billsTab.click();
 };
 
