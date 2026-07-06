@@ -30,18 +30,16 @@ function renderAccountTab(){
         <div><div style="color:var(--text3);font-size:10px;font-weight:600;margin-bottom:2px">Email</div><div style="font-weight:700;word-break:break-all">${esc(o.email||"–")}</div></div>
         <div><div style="color:var(--text3);font-size:10px;font-weight:600;margin-bottom:2px">Plan</div><div style="font-weight:700">${esc(o.plan)}</div></div>
         <div><div style="color:var(--text3);font-size:10px;font-weight:600;margin-bottom:2px">Expires</div><div style="font-weight:700">${fmtDate(o.subExpiry)}</div></div>
-        <div><div style="color:var(--text3);font-size:10px;font-weight:600;margin-bottom:2px">Tenants</div><div style="font-weight:700">${tenants.length}${o.plan==="trial"?" / 3":""}</div></div>
+        <div><div style="color:var(--text3);font-size:10px;font-weight:600;margin-bottom:2px">Tenants</div><div style="font-weight:700">${tenants.length}${(()=>{let c=window.getPlanCap?window.getPlanCap(o.plan):(o.plan==="trial"?3:Infinity);return (c&&c!==Infinity)?" / "+c:"";})()}</div></div>
         <div><div style="color:var(--text3);font-size:10px;font-weight:600;margin-bottom:2px">Created</div><div style="font-weight:700">${esc(o.createdOn||"–")}</div></div>
       </div>
     </div>
     ${o.plan==="trial"?`
       <div style="background:var(--gold-g);border:1px solid rgba(245,166,35,.3);border-radius:var(--rs);padding:14px;margin-bottom:10px">
         <div style="font-weight:700;font-size:13px;color:var(--gold);margin-bottom:6px">💎 Upgrade to a Paid Plan</div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500">Unlock unlimited tenants, priority support, and never lose access.</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500">Plans from <strong>₹99/mo</strong> — pick the tier that fits your tenant count. Unlock more tenants, priority support, and never lose access.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <a class="btn btn-success" href="${PAY_LINKS.monthly}" target="_blank" style="flex:1">💳 Monthly ₹40</a>
-          <a class="btn btn-gold" href="${PAY_LINKS.annual}" target="_blank" style="flex:1">💰 Annual ₹499</a>
-          <button class="btn btn-edit" onclick="upgradeAccount()" style="flex:1">📋 View Plans</button>
+          <button class="btn btn-gold" onclick="openPlansModal()" style="flex:1">🚀 View Plans &amp; Pricing</button>
         </div>
       </div>`:""}
   `;

@@ -1,4 +1,14 @@
-import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, PAY_LINKS, collection, onSnapshot, serverTimestamp } from './firebase.js';
+import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, PAY_LINKS, PLAN_CATALOG, LIFETIME_PLAN, payLink, collection, onSnapshot, serverTimestamp } from './firebase.js';
+
+// Max tenants allowed for a given plan id (trial=3; legacy monthly/annual and
+// lifetime = unlimited; catalog tiers use their configured cap).
+function getPlanCap(plan){
+  if(!plan || plan==="trial") return 3;
+  if(plan==="monthly" || plan==="annual" || plan==="lifetime" || plan==="unlimited") return Infinity;
+  let t=PLAN_CATALOG.find(p=>p.id===plan);
+  return t ? t.cap : Infinity;
+}
+window.getPlanCap = getPlanCap;
 import { state } from './state.js';
 import { g, sv, show, toast, fmtDate, fmtMoney, genUID, esc, escAttr, daysBetween, closeModal, unitNoun } from './helpers.js';
 
@@ -100,20 +110,17 @@ function renderTrialBanner(){
   if(st.expired){
     wrap.innerHTML=`<div class="trial-banner expired">
       <div class="trial-banner-head">⛔ Your Free Trial Has Expired</div>
-      <div class="trial-banner-body">You can no longer add tenants or create bills. Please upgrade to keep using KiraaBook.</div>
+      <div class="trial-banner-body">You can no longer add tenants or create bills. Pick a plan that fits your tenant count to keep using KiraaBook.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <a class="btn btn-success" href="${PAY_LINKS.monthly}" target="_blank" style="flex:1">💳 Monthly ₹40</a>
-        <a class="btn btn-gold" href="${PAY_LINKS.annual}" target="_blank" style="flex:1">💰 Annual ₹499</a>
-        <button class="btn btn-edit" onclick="upgradeAccount()" style="flex:1">📋 View Plans</button>
+        <button class="btn btn-gold" onclick="openPlansModal()" style="flex:1">🚀 View Plans &amp; Pricing</button>
       </div>
     </div>`;
   } else if(st.daysLeft<=7){
     wrap.innerHTML=`<div class="trial-banner warn">
       <div class="trial-banner-head">⚠️ Trial Ending in ${st.daysLeft} day${st.daysLeft===1?"":"s"}</div>
-      <div class="trial-banner-body">Your free trial ends on ${fmtDate(currentOwnerData.subExpiry)}. Upgrade now to keep your account active and add unlimited tenants.</div>
+      <div class="trial-banner-body">Your free trial ends on ${fmtDate(currentOwnerData.subExpiry)}. Upgrade now to keep your account active — plans start at just ₹99/mo.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <a class="btn btn-success" href="${PAY_LINKS.monthly}" target="_blank" style="flex:1">💳 Buy Monthly ₹40</a>
-        <a class="btn btn-gold" href="${PAY_LINKS.annual}" target="_blank" style="flex:1">💰 Buy Annual ₹499</a>
+        <button class="btn btn-gold" onclick="openPlansModal()" style="flex:1">🚀 See Plans (from ₹99/mo)</button>
       </div>
     </div>`;
   } else {
@@ -127,9 +134,12 @@ function renderTrialBanner(){
 function canAddTenant(){
   if(!currentOwnerData) return true;
   let st=checkTrialStatus(currentOwnerData);
-  if(st.expired){ toast("⛔ Free trial expired. Please upgrade to add tenants.","error"); return false; }
-  if(currentOwnerData.plan==="trial" && tenants.length>=3){
-    toast("⛔ Trial limit reached (3 tenants). Upgrade to add more.","error");
+  if(st.expired){ toast("⛔ Free trial expired. Please upgrade to add tenants.","error"); openPlansModal(); return false; }
+  let cap=getPlanCap(currentOwnerData.plan);
+  let activeCount=(tenants||[]).filter(t=>t.active!==false).length;
+  if(activeCount>=cap){
+    toast(`⛔ Plan limit reached (${cap} tenants). Upgrade to a higher tier to add more.`,"error");
+    openPlansModal();
     return false;
   }
   return true;
@@ -138,20 +148,24 @@ function canAddTenant(){
 function renderTenantLimitWarn(){
   let el=document.getElementById("tenant-limit-warn");
   if(!el||!currentOwnerData) return;
-  if(currentOwnerData.plan==="trial" && tenants.length>=3){
+  let cap=getPlanCap(currentOwnerData.plan);
+  let activeCount=(tenants||[]).filter(t=>t.active!==false).length;
+  let atCap = activeCount>=cap;
+  let capLabel = cap===Infinity ? "unlimited" : cap;
+  if(atCap){
     el.style.display="block";
-    el.innerHTML=`⚠️ <strong>Trial limit reached:</strong> You have 3 tenants (the maximum on the free plan). Upgrade to add unlimited tenants. <a href="javascript:void(0)" onclick="openPlansModal()" style="color:var(--blue);font-weight:700">Buy plan →</a>`;
+    el.innerHTML=`⚠️ <strong>Plan limit reached:</strong> You have ${activeCount} of ${capLabel} tenants on your current plan. Upgrade to a higher tier to add more. <a href="javascript:void(0)" onclick="openPlansModal()" style="color:var(--blue);font-weight:700">See plans →</a>`;
   } else { el.style.display="none"; }
   // Disable add-tenant button if at cap or expired
   let btn=document.getElementById("add-tenant-btn");
   let info=document.getElementById("add-tenant-info");
   let st=checkTrialStatus(currentOwnerData);
   if(btn){
-    if(st.expired||(currentOwnerData.plan==="trial"&&tenants.length>=3)){
+    if(st.expired||atCap){
       btn.disabled=true;
       btn.style.opacity=".5";
       btn.style.cursor="not-allowed";
-      if(info) info.innerHTML=`⛔ ${st.expired?"Trial expired":"Trial limit (3 tenants) reached"}. <a href="javascript:void(0)" onclick="openPlansModal()" style="color:var(--blue);font-weight:700">Upgrade to add more →</a>`;
+      if(info) info.innerHTML=`⛔ ${st.expired?"Trial expired":`Plan limit reached (${capLabel} tenants)`}. <a href="javascript:void(0)" onclick="openPlansModal()" style="color:var(--blue);font-weight:700">Upgrade to add more →</a>`;
     } else {
       btn.disabled=false;
       btn.style.opacity="1";
@@ -1423,46 +1437,86 @@ window.openContactModal = ()=>{
 };
 
 // v13.x: Plans / Upgrade modal
+window._plansBilling = "annual";
+window.setPlansBilling = (c)=>{ window._plansBilling=c; renderPlansGrid(); };
+
+function renderPlansGrid(){
+  let grid=document.getElementById("plans-grid"); if(!grid) return;
+  let cycle=window._plansBilling||"annual";
+  let curPlan=(currentOwnerData&&currentOwnerData.plan)||"trial";
+
+  // Billing toggle
+  let tog=document.getElementById("plans-billing-toggle");
+  if(tog) tog.innerHTML=["monthly","annual"].map(c=>{
+    let active=c===cycle;
+    return `<button onclick="setPlansBilling('${c}')" style="flex:1;padding:8px;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;font-family:'Sora',sans-serif;background:${active?'var(--blue)':'transparent'};color:${active?'#fff':'var(--text3)'}">${c==='monthly'?'Monthly':'Annual · save ~33%'}</button>`;
+  }).join("");
+
+  let cardFor=(p)=>{
+    let price=cycle==="annual"?p.annual:p.monthly;
+    let per=cycle==="annual"?"/yr":"/mo";
+    let capTxt=p.cap===Infinity?"Unlimited tenants":`Up to ${p.cap} tenants`;
+    let isCurrent=curPlan===p.id;
+    let save=(cycle==="annual"&&p.monthly)?Math.round((1-(p.annual/(p.monthly*12)))*100):0;
+    return `<div style="background:${p.popular?'linear-gradient(135deg,var(--s2),var(--s3))':'var(--s2)'};border:2px solid ${p.popular?'var(--blue)':'var(--border)'};border-radius:var(--rs);padding:16px 14px;text-align:center;position:relative">
+      ${p.popular?`<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:9px;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:.5px">POPULAR</div>`:""}
+      <div style="font-size:10px;color:${p.popular?'var(--blue)':'var(--text3)'};font-weight:700;letter-spacing:.5px;margin-bottom:6px">${p.name.toUpperCase()}</div>
+      <div style="font-size:25px;font-weight:800;color:var(--text)">₹${price.toLocaleString("en-IN")}<span style="font-size:13px;color:var(--text3);font-weight:600">${per}</span></div>
+      <div style="font-size:10px;color:var(--green);font-weight:700;margin:2px 0 8px;min-height:12px">${save>0?`Save ${save}% vs monthly`:""}</div>
+      <div style="font-size:12px;color:var(--text2);font-weight:800;margin-bottom:4px">${capTxt}</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:12px">${p.tagline}</div>
+      ${isCurrent?`<button class="btn btn-ghost" style="width:100%;font-size:11px" disabled>✓ Current plan</button>`:`<button class="btn ${p.popular?'btn-primary':'btn-edit'}" style="width:100%;font-size:12px" onclick="goToPlan('${p.id}','${cycle}')">Choose ${p.name}</button>`}
+    </div>`;
+  };
+
+  let lt=LIFETIME_PLAN;
+  let lifeCard=`<div style="background:linear-gradient(135deg,rgba(245,166,35,.1),var(--s2));border:2px solid var(--gold);border-radius:var(--rs);padding:16px 14px;text-align:center;position:relative">
+    <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold);color:#0f172a;font-size:9px;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:.5px">BEST VALUE</div>
+    <div style="font-size:10px;color:var(--gold);font-weight:700;letter-spacing:.5px;margin-bottom:6px">LIFETIME</div>
+    <div style="font-size:25px;font-weight:800;color:var(--text)">₹${lt.oneTime.toLocaleString("en-IN")}</div>
+    <div style="font-size:10px;color:var(--green);font-weight:700;margin:2px 0 8px">one-time payment</div>
+    <div style="font-size:12px;color:var(--text2);font-weight:800;margin-bottom:4px">Unlimited forever</div>
+    <div style="font-size:10px;color:var(--text3);margin-bottom:12px">${lt.tagline}</div>
+    ${curPlan==="lifetime"?`<button class="btn btn-ghost" style="width:100%;font-size:11px" disabled>✓ Current plan</button>`:`<button class="btn btn-gold" style="width:100%;font-size:12px" onclick="goToPlan('lifetime','once')">Buy Lifetime</button>`}
+  </div>`;
+
+  grid.innerHTML = PLAN_CATALOG.map(cardFor).join("") + lifeCard;
+}
+
 window.openPlansModal = ()=>{
-  // Set current plan status text
   let info = currentOwnerData;
-  let statusHtml = "";
+  let statusHtml = "Pick the plan that fits your tenant count:";
   if(info){
     if(info.plan==="trial" || !info.plan){
       let st = (typeof checkTrialStatus==="function") ? checkTrialStatus(info) : null;
-      let daysLeft = st?.daysLeft ?? "?";
-      statusHtml = `🆓 <strong>Current plan:</strong> Free Trial · ${daysLeft} day${daysLeft===1?"":"s"} remaining`;
-    } else if(info.plan==="monthly"){
-      statusHtml = `💳 <strong>Current plan:</strong> Monthly · auto-renews ${info.subExpiry?"on "+new Date(info.subExpiry).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):""}`;
-    } else if(info.plan==="annual"){
-      statusHtml = `🌟 <strong>Current plan:</strong> Annual · expires ${info.subExpiry?new Date(info.subExpiry).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"–"}`;
-    } else if(info.plan==="lifetime"){
-      statusHtml = `♾️ <strong>Current plan:</strong> Lifetime · You're all set!`;
+      let d = st?.daysLeft ?? "?";
+      statusHtml = `🆓 <strong>Current plan:</strong> Free Trial · ${d} day${d===1?"":"s"} remaining · up to 3 tenants`;
     } else {
-      statusHtml = `<strong>Current plan:</strong> ${info.plan}`;
+      let cap=getPlanCap(info.plan);
+      let capTxt=cap===Infinity?"unlimited tenants":`up to ${cap} tenants`;
+      let name=(PLAN_CATALOG.find(p=>p.id===info.plan)?.name) || (info.plan==="lifetime"?"Lifetime":info.plan==="annual"?"Annual":info.plan==="monthly"?"Monthly":info.plan);
+      let exp=(info.subExpiry&&info.plan!=="lifetime")?` · renews ${new Date(info.subExpiry).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}`:"";
+      statusHtml = `✅ <strong>Current plan:</strong> ${name} · ${capTxt}${exp}`;
     }
-  } else {
-    statusHtml = "Pick a plan to unlock unlimited tenants:";
   }
   let curEl = document.getElementById("plans-modal-current");
   if(curEl) curEl.innerHTML = statusHtml;
+  renderPlansGrid();
   document.getElementById("plans-modal").classList.add("open");
 };
 
-window.goToPaymentLink = (plan)=>{
-  let url = PAY_LINKS[plan];
-  if(!url){ toast("Payment link not configured","error"); return; }
-  // Open Razorpay payment in a new tab
+window.goToPlan = (planId, cycle)=>{
+  let p = planId==="lifetime" ? LIFETIME_PLAN : PLAN_CATALOG.find(x=>x.id===planId);
+  if(!p){ toast("Plan not found","error"); return; }
+  let amount = planId==="lifetime" ? p.oneTime : (cycle==="annual" ? p.annual : p.monthly);
+  let url = payLink(amount);
   let w = window.open(url, "_blank", "noopener,noreferrer");
-  if(!w){
-    // Popup blocked — show fallback
-    alert(`Your browser blocked the payment popup. Please open this link manually:\n\n${url}`);
-    return;
-  }
-  toast("💳 Opening payment page in a new tab...","info");
-  // Optional: log activity
-  try{ logActivity("Plan Upgrade Initiated", `Plan: ${plan}`, currentOwnerData?.name||"Owner"); }catch(e){}
+  if(!w){ alert(`Your browser blocked the payment popup. Please open this link manually:\n\n${url}`); return; }
+  toast("💳 Opening payment page…","info");
+  try{ logActivity("Plan Upgrade Initiated", `Plan: ${p.name} (${cycle}) ₹${amount}`, currentOwnerData?.name||"Owner"); }catch(e){}
 };
+// Back-compat: old callers used goToPaymentLink('monthly'|'annual')
+window.goToPaymentLink = (plan)=>{ window.goToPlan(plan==="annual"?"pro":"pro", plan==="annual"?"annual":"monthly"); };
 
 // ── RENDER TENANT LIST (operations cockpit) ───────────────────
 function renderTenantList(){

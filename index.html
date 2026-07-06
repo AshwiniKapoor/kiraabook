@@ -1841,55 +1841,15 @@
       <!-- Current plan status -->
       <div id="plans-modal-current" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:14px;font-size:12px;color:var(--text2);font-weight:500"></div>
 
-      <!-- Plan tiles -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px">
-        <!-- Free trial -->
-        <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:16px;text-align:center;position:relative">
-          <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.5px;margin-bottom:8px">FREE TRIAL</div>
-          <div style="font-size:30px;font-weight:800;color:var(--text)">₹0</div>
-          <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:10px">30 days</div>
-          <ul style="font-size:11px;color:var(--text2);text-align:left;list-style:none;padding:0;line-height:1.7">
-            <li>✅ Up to 3 tenants</li>
-            <li>✅ All core features</li>
-            <li>✅ No credit card needed</li>
-          </ul>
-          <button class="btn btn-ghost" style="width:100%;margin-top:10px;font-size:11px" disabled>Current</button>
-        </div>
+      <!-- Billing cycle toggle -->
+      <div id="plans-billing-toggle" style="display:flex;gap:4px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:4px;margin-bottom:14px"></div>
 
-        <!-- Monthly -->
-        <div style="background:linear-gradient(135deg,var(--s2),var(--s3));border:2px solid var(--blue);border-radius:var(--rs);padding:16px;text-align:center;position:relative">
-          <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:9px;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:.5px">POPULAR</div>
-          <div style="font-size:10px;color:var(--blue);font-weight:700;letter-spacing:.5px;margin-bottom:8px">MONTHLY</div>
-          <div style="font-size:30px;font-weight:800;color:var(--text)">₹40<span style="font-size:14px;color:var(--text3);font-weight:600">/mo</span></div>
-          <div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:10px">Cancel anytime</div>
-          <ul style="font-size:11px;color:var(--text2);text-align:left;list-style:none;padding:0;line-height:1.7">
-            <li>✅ <strong>Unlimited tenants</strong></li>
-            <li>✅ All premium features</li>
-            <li>✅ WhatsApp reminders</li>
-            <li>✅ Email support</li>
-          </ul>
-          <button class="btn btn-primary" style="width:100%;margin-top:10px;font-size:12px" onclick="goToPaymentLink('monthly')">💳 Choose Monthly</button>
-        </div>
+      <!-- Plan tiles (rendered by renderPlansGrid) -->
+      <div id="plans-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px"></div>
 
-        <!-- Annual -->
-        <div style="background:linear-gradient(135deg,rgba(245,166,35,.08),var(--s2));border:2px solid var(--gold);border-radius:var(--rs);padding:16px;text-align:center;position:relative">
-          <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold);color:#0f172a;font-size:9px;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:.5px">BEST VALUE</div>
-          <div style="font-size:10px;color:var(--gold);font-weight:700;letter-spacing:.5px;margin-bottom:8px">ANNUAL</div>
-          <div style="font-size:30px;font-weight:800;color:var(--text)">₹499<span style="font-size:14px;color:var(--text3);font-weight:600">/yr</span></div>
-          <div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:10px">💰 Save ₹481/year</div>
-          <ul style="font-size:11px;color:var(--text2);text-align:left;list-style:none;padding:0;line-height:1.7">
-            <li>✅ <strong>Unlimited tenants</strong></li>
-            <li>✅ Everything in Monthly</li>
-            <li>✅ Priority support</li>
-            <li>✅ Save 50%+ on monthly</li>
-          </ul>
-          <button class="btn btn-gold" style="width:100%;margin-top:10px;font-size:12px" onclick="goToPaymentLink('annual')">🌟 Choose Annual</button>
-        </div>
-      </div>
-
-      <!-- Feature comparison -->
+      <!-- Help note -->
       <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;font-size:11px;color:var(--text3);line-height:1.6">
-        <strong style="color:var(--text2)">💡 Need help choosing?</strong> Most owners with 4+ tenants pick Annual to save ~50%. Try Monthly first if you're not sure. Contact us anytime to switch or cancel.
+        <strong style="color:var(--text2)">💡 Which plan?</strong> Pick the tier that matches your tenant count — you can upgrade anytime as you grow. <strong>Annual saves ~33%</strong> vs monthly, and <strong>Lifetime</strong> is a one-time payment for unlimited use forever. Every paid plan includes all features (auto-billing, reminders, PDF invoices, rent agreements, reports).
       </div>
     </div>
   </div>
