@@ -1127,9 +1127,9 @@ window.createBill=async(viaWhatsApp=false)=>{
   if(viaWhatsApp){
     let url=`https://wa.me/${waPhone(tPhone)}?text=${encodeURIComponent(billWhatsAppText(tName,monthLabel,items,total,due))}`;
     window.open(url,"_blank");
-    toast(`✅ Bill created — opening WhatsApp for ${tName}`,"info");
+    toast(`✅ Sent to ${tName}'s portal — opening WhatsApp`,"info");
   } else {
-    toast(`✅ Bill ${fmtMoney(total)} created!`);
+    toast(`✅ Bill ${fmtMoney(total)} sent to ${tName}'s portal!`);
   }
   let billsTab=document.querySelectorAll(".t-tab")[3]; if(billsTab) billsTab.click();
 };
