@@ -19,9 +19,24 @@ export const firebaseConfig = {
 export const ADMIN_PASS   = "Geetansh2013";
 export const LIFETIME_KEY = "Geetansh2013";
 
+export const RZP_HANDLE = "kiraabook";
+export function payLink(amount){ return `https://razorpay.me/@${RZP_HANDLE}?amount=${amount}`; }
+
+// Tenant-capacity pricing ladder (India). Owner picks the tier matching their
+// portfolio size; annual ≈ 8× monthly (~33% off). cap = max active tenants.
+export const PLAN_CATALOG = [
+  { id:"starter",   name:"Starter",   cap:10,       monthly:99,  annual:799,  tagline:"For small landlords" },
+  { id:"pro",       name:"Pro",       cap:25,       monthly:199, annual:1599, tagline:"Growing portfolio", popular:true },
+  { id:"plus",      name:"Plus",      cap:50,       monthly:349, annual:2799, tagline:"Multiple properties" },
+  { id:"business",  name:"Business",  cap:100,      monthly:599, annual:4999, tagline:"PG / hostels" },
+  { id:"unlimited", name:"Unlimited", cap:Infinity, monthly:999, annual:7999, tagline:"No limits" }
+];
+export const LIFETIME_PLAN = { id:"lifetime", name:"Lifetime", cap:Infinity, oneTime:9999, tagline:"Pay once, use forever" };
+
+// Kept for backward-compat with any legacy references
 export const PAY_LINKS = {
-  monthly: "https://razorpay.me/@kiraabook?amount=40",
-  annual:  "https://razorpay.me/@kiraabook?amount=499"
+  monthly: payLink(199),
+  annual:  payLink(1599)
 };
 
 export const DB_COLLS = [
