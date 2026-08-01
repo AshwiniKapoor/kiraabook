@@ -1,4 +1,4 @@
-import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, ADMIN_PASS } from '../firebase.js';
+import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, ADMIN_PASS, uploadImage } from '../firebase.js';
 import { state } from '../state.js';
 import { g, sv, show, toast, fmtDate, esc, escAttr, closeModal, genUID, stampPdfReference } from '../helpers.js';
 
@@ -261,6 +261,8 @@ window.enablePushNotifs=async()=>{
 window.uploadOwnerPic=()=>{
   let file=document.getElementById("owner-pic-file").files[0];
   if(!file) return;
+  if(!/^image\//.test(file.type)){ toast("Please choose an image file (JPG/PNG).","error"); return; }
+  if(file.size>5*1024*1024){ toast("Image too large — please pick one under 5 MB.","error"); return; }
   let reader=new FileReader();
   reader.onload=e=>{
     let img=new Image();
@@ -393,14 +395,20 @@ window.saveTenantEditProfile=async()=>{
     if(p1.length<6){ err.textContent="Password must be 6+ chars."; return; }
     if(p1!==p2){ err.textContent="Passwords don't match."; return; }
   }
+  // Upload any newly-picked KYC/ID docs to Storage; store URLs, not base64.
+  let [profUrl,idUrl,pvUrl]=await Promise.all([
+    uploadImage(`tenants/${currentTenantId}/kyc/profile.jpg`, document.getElementById("tep-prof-data")?.value||""),
+    uploadImage(`tenants/${currentTenantId}/kyc/id.jpg`,      document.getElementById("tep-id-data")?.value||""),
+    uploadImage(`tenants/${currentTenantId}/kyc/pv.jpg`,      document.getElementById("tep-pv-data")?.value||"")
+  ]);
   let upd={
     name, phone, alt:g("tep-alt"), email,
     address:g("tep-address"),
     idType:g("tep-idtype"), idNum:g("tep-idnum"),
     date:g("tep-date"), notes:g("tep-notes"),
-    profPhoto:document.getElementById("tep-prof-data")?.value||"",
-    idPhoto:document.getElementById("tep-id-data")?.value||"",
-    pvPhoto:document.getElementById("tep-pv-data")?.value||"",
+    profPhoto:profUrl,
+    idPhoto:idUrl,
+    pvPhoto:pvUrl,
     lastUpdated:new Date().toISOString(),
     needsProfileCompletion:false
   };
