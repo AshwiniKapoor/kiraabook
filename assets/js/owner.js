@@ -208,10 +208,26 @@ async function initOwner(){
   if(unsubC){unsubC();}
 
   unsubT=onSnapshot(collection(db,"tenants"),snap=>{
-    let ownerDocId = (currentOwnerData && currentOwnerData.id) || ownerID;
-    tenants=snap.docs.map(d=>({id:d.id,...d.data()})).filter(t=>
-      t.ownerID===ownerID || t.ownerID===ownerDocId
-    );
+    // Match a tenant to this owner against EVERY identifier the owner may have
+    // been saved under over time — oid, Firestore doc id, and the stored
+    // kb_owner_id — normalised (trim + lowercase) so a stray case/whitespace
+    // difference can't hide a real tenant. (Bug: tenants existed & could log in
+    // but were missing from the owner list because ownerID was saved as the doc
+    // id while kb_owner_id was the oid, or vice-versa.)
+    let norm = v => String(v==null?"":v).trim().toLowerCase();
+    let ownerKeys = new Set([ ownerID,
+      currentOwnerData && currentOwnerData.id,
+      currentOwnerData && currentOwnerData.oid ].filter(Boolean).map(norm));
+    let all=snap.docs.map(d=>({id:d.id,...d.data()}));
+    tenants=all.filter(t=> ownerKeys.has(norm(t.ownerID)));
+    // Diagnostic: tenants with a BLANK ownerID belong to no one and silently
+    // vanish from every owner list. Surface them (with their doc id) so the
+    // owner can reclaim them via reassignOrphanTenants() below.
+    window._orphanTenants = all.filter(t=> !norm(t.ownerID));
+    if(window._orphanTenants.length) console.warn(
+      `[kb] ${window._orphanTenants.length} tenant(s) have NO ownerID and are hidden from every owner list:`,
+      window._orphanTenants.map(t=>({name:t.name,room:t.room,id:t.id})),
+      "\n→ If these are yours, run  reassignOrphanTenants()  in this console to attach them to your account.");
     renderTenantList(); updateOwnerStats(); populateTenantSelect();
     try{ renderFormerTenants(); }catch(e){}
     renderOverdueAlerts(); renderVacantNotices();
@@ -1362,6 +1378,22 @@ window.exportTenantsExcel=async()=>{
 
 let currentSort="attention";
 window.setFilter=(f)=>{ currentFilter=f; renderTenantList(); };
+
+// Recovery: attach tenants that have a blank ownerID (belong to no one, so they
+// are hidden from every owner list) to the currently-logged-in owner. Populated
+// by the tenants snapshot into window._orphanTenants; run from the console.
+window.reassignOrphanTenants=async()=>{
+  let orphans=(window._orphanTenants||[]).slice();
+  if(!orphans.length){ toast("No unassigned tenants found.","info"); return; }
+  let ownerID=localStorage.getItem("kb_owner_id");
+  if(!ownerID){ toast("You must be logged in as an owner.","error"); return; }
+  if(!confirm(`Attach these ${orphans.length} unassigned tenant(s) to your account?\n\n`+
+      orphans.map(t=>`• ${t.name||"(no name)"} — Room ${t.room||"–"}`).join("\n"))) return;
+  let n=0;
+  for(let t of orphans){ try{ await fbUpdate("tenants",t.id,{ownerID}); n++; }catch(e){} }
+  toast(`✅ Attached ${n} tenant(s) to your account`);
+  try{ await logActivity("Orphan Tenants Reassigned",`${n} tenants attached to owner`,"Owner"); }catch(e){}
+};
 window.setSort  =(s)=>{ currentSort=s; renderTenantList(); };
 
 // Settle a tenant's OLDEST unpaid bill (arrears-first) straight from the list
