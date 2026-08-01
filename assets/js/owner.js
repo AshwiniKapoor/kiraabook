@@ -931,6 +931,9 @@ window.ownerAddTenant=async()=>{
   // Default password: phone number's last 6 digits (or "kiraabook" if no phone)
   let defaultPass=phone ? phone.replace(/[^0-9]/g,"").slice(-6).padStart(6,"0") : "kiraabook";
   let ownerID=localStorage.getItem("kb_owner_id")||"";
+  // Never create a tenant with a blank ownerID — it would be invisible to every
+  // owner list (the "orphan tenant" bug). Force a clean re-login instead.
+  if(!ownerID){ toast("⚠️ Session issue — please log out and log back in before adding tenants.","error"); return; }
   let tid=genUID();
   let obj={
     tid, name, room, rent,

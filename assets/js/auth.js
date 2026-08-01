@@ -621,6 +621,14 @@ async function submitTenantFormFinal(){
   try{
     let all=await fbGet("tenants");
     let inviteOwner=localStorage.getItem("kb_invite_owner")||"";
+    // Guard: never save a tenant with a blank ownerID — it becomes an "orphan"
+    // hidden from every owner list. Send them back to re-enter the Owner ID.
+    if(!inviteOwner){
+      btn.textContent="✅ Complete Registration"; btn.disabled=false;
+      toast("⚠️ We couldn't identify your property owner. Please restart and use your owner's invite link or enter their Owner ID.","error");
+      showTenantRegister();
+      return;
+    }
     let existing=null;
     if(inviteOwner) existing=all.find(t=>t.name.trim().toLowerCase()===name.toLowerCase()&&t.ownerID===inviteOwner);
     if(!existing) existing=all.find(t=>t.name.trim().toLowerCase()===name.toLowerCase());
