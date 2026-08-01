@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// KiraaBook — Firebase Storage rules for tenant KYC/ID documents.
+//
+// Interim posture (Step 1 of the security migration):
+//   • WRITE requires a signed request (Anonymous Auth is enough for now) plus a
+//     hard 5 MB cap and an image-only content-type. This stops anonymous randoms
+//     with no Firebase token from dumping files into the bucket.
+//   • READ stays open because the app currently serves images via getDownloadURL
+//     tokens (unguessable bearer links). Tighten this to owner/tenant identity in
+//     Step 3, once real Firebase Auth (owner + tenant uids/claims) is in place —
+//     then switch reads to: allow read: if request.auth != null && <owns doc>.
+//
+// Everything else in the bucket is denied by default.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /tenants/{tenantId}/kyc/{file} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Deny anything not explicitly matched above.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

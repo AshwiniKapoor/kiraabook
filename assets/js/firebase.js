@@ -3,6 +3,10 @@ import {
   getFirestore, collection, doc, setDoc, getDoc, getDocs,
   addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy, limit
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import { getStorage, ref as storageRef, uploadString, getDownloadURL, deleteObject }
+  from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
+import { getAuth, signInAnonymously }
+  from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 
 export { collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
          onSnapshot, serverTimestamp, query, orderBy, limit };
@@ -55,6 +59,46 @@ export const DB_COLLS = [
 
 const fapp = initializeApp(firebaseConfig);
 export const db = getFirestore(fapp);
+export const storage = getStorage(fapp);
+export const auth = getAuth(fapp);
+
+// ── SECURE DOCUMENT UPLOADS ───────────────────────────────────
+// Tenant KYC/ID images used to be stored as base64 strings inside the Firestore
+// tenant record — which meant every image was broadcast in every snapshot and
+// could not be access-controlled separately. We now upload them to Firebase
+// Storage and keep only a URL in Firestore.
+//
+// Writes are gated by Firebase Anonymous Auth so the Storage rules can require a
+// signed request (an interim step before full owner/tenant Auth). If Anonymous
+// sign-in or Storage isn't enabled yet in the console, everything degrades
+// gracefully: uploadImage() falls back to returning the original base64 so the
+// app keeps working exactly as before.
+export const authReady = signInAnonymously(auth)
+  .then(c => c.user)
+  .catch(e => { console.warn("[kb] anonymous auth unavailable — docs will fall back to inline storage:", e?.code || e); return null; });
+
+// Upload a compressed data-URL image to Storage and return its download URL.
+// - Empty input → "" (nothing to store)
+// - Already an http(s) URL → returned unchanged (avoids re-uploading on edits)
+// - On any failure → returns the original data-URL so no document is ever lost
+export async function uploadImage(path, dataUrl) {
+  if (!dataUrl) return "";
+  if (/^https?:\/\//i.test(dataUrl)) return dataUrl;
+  try {
+    await authReady;
+    const r = storageRef(storage, path);
+    await uploadString(r, dataUrl, "data_url");
+    return await getDownloadURL(r);
+  } catch (e) {
+    console.warn("[kb] Storage upload failed, keeping inline copy:", e?.code || e);
+    return dataUrl; // graceful fallback — keep working like before
+  }
+}
+
+// Best-effort delete of a stored doc (used on tenant offboarding cleanup)
+export async function deleteStoredImage(path) {
+  try { await authReady; await deleteObject(storageRef(storage, path)); } catch (e) {}
+}
 
 export async function fbAdd(c, data) {
   return await addDoc(collection(db, c), { ...data, createdAt: serverTimestamp() });

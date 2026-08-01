@@ -1,4 +1,4 @@
-import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, PAY_LINKS, ADMIN_PASS, LIFETIME_KEY, collection, doc, getDoc } from './firebase.js';
+import { db, fbGet, fbSet, fbUpdate, fbGetDoc, fbAdd, fbDel, logActivity, PAY_LINKS, ADMIN_PASS, LIFETIME_KEY, collection, doc, getDoc, uploadImage } from './firebase.js';
 import { state } from './state.js';
 import { g, sv, show, toast, fmtDate, fmtMoney, genUID, esc, escAttr, daysBetween, closeModal, fmtDateNice } from './helpers.js';
 
@@ -530,6 +530,8 @@ window.triggerFile=(fileId,dataId,prevId,selfie)=>{
 window.handlePhotoFile=(fileId,dataId,prevId,isRound)=>{
   let file=document.getElementById(fileId)?.files?.[0];
   if(!file) return;
+  if(!/^image\//.test(file.type)){ toast("Please choose an image file (JPG/PNG).","error"); return; }
+  if(file.size>5*1024*1024){ toast("Image too large — please pick one under 5 MB.","error"); return; }
   let reader=new FileReader();
   reader.onload=e=>{
     let img=new Image();
@@ -623,6 +625,15 @@ async function submitTenantFormFinal(){
     if(inviteOwner) existing=all.find(t=>t.name.trim().toLowerCase()===name.toLowerCase()&&t.ownerID===inviteOwner);
     if(!existing) existing=all.find(t=>t.name.trim().toLowerCase()===name.toLowerCase());
     let tid=existing?.tid||genUID();
+    // Upload KYC/ID docs to Firebase Storage; store URLs, not base64 (falls back
+    // to the inline data-URL automatically if Storage isn't reachable).
+    let idData=document.getElementById("id-data").value||"";
+    let pvData=document.getElementById("pv-data").value||"";
+    let [profUrl,idUrl,pvUrl]=await Promise.all([
+      uploadImage(`tenants/${tid}/kyc/profile.jpg`, profData),
+      uploadImage(`tenants/${tid}/kyc/id.jpg`,      idData),
+      uploadImage(`tenants/${tid}/kyc/pv.jpg`,      pvData)
+    ]);
     let obj={
       tid, name,
       room:g("tr-room"), rent:g("tr-rent"),
@@ -631,9 +642,9 @@ async function submitTenantFormFinal(){
       idType:g("tr-idtype"), idNum:g("tr-idnum"),
       date:g("tr-date"), notes:g("tr-notes"),
       password:pass,
-      profPhoto:profData,
-      idPhoto:document.getElementById("id-data").value||"",
-      pvPhoto:document.getElementById("pv-data").value||"",
+      profPhoto:profUrl,
+      idPhoto:idUrl,
+      pvPhoto:pvUrl,
       paid:false, history:[], approved:false,
       ownerID:inviteOwner,
       submittedOn:new Date().toLocaleDateString("en-IN"),

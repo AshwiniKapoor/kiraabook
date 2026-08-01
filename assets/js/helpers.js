@@ -139,6 +139,8 @@ window.triggerFile = (fileId, dataId, prevId, selfie) => {
 window.handlePhotoFile = (fileId, dataId, prevId, isRound) => {
   const file = document.getElementById(fileId)?.files?.[0];
   if (!file) return;
+  if (!/^image\//.test(file.type)) { toast("Please choose an image file (JPG/PNG).", "error"); return; }
+  if (file.size > 5 * 1024 * 1024)  { toast("Image too large — please pick one under 5 MB.", "error"); return; }
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
